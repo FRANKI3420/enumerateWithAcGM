@@ -9,15 +9,42 @@ class AcgmCodeFragment
         implements CodeFragment {
     final byte vLabel;
     final byte[] eLabels;
+    final boolean isConnected;
 
     AcgmCodeFragment(byte vLabel, int length) {
         this.vLabel = vLabel;
         eLabels = new byte[length];
+        isConnected =true;
     }
 
     AcgmCodeFragment(byte vLabel, byte[] eLabels) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
+        isConnected = false;
+    }
+    // AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean pastIsConnected) {
+    //     this.vLabel = vLabel;
+    //     this.eLabels = eLabels.clone();
+    //     if(!pastIsConnected){
+    //         this.isConnected = false;
+    //     }else{
+    //         this.isConnected = judgeIsConnected(eLabels);
+    //     }
+    // }
+    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected) {
+        this.vLabel = vLabel;
+        this.eLabels = eLabels.clone();
+        this.isConnected = isConnected;
+    }
+
+    //eLabelsの配列が全て0であれば、非連結である
+    private boolean judgeIsConnected(byte[] eLabels) {
+        for(byte e : eLabels){
+            if(e==1){ 
+                return true;
+            }
+        }
+        return false;
     }
 
     int isMoreCanonicalThan(AcgmCodeFragment other) {
@@ -71,5 +98,9 @@ class AcgmCodeFragment
     @Override
     public byte[] getelabel() {
         return this.eLabels;
+    }
+    @Override
+    public boolean getIsConnected() {
+        return this.isConnected;
     }
 }

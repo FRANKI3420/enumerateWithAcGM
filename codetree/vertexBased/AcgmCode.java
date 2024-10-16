@@ -8,6 +8,24 @@ import codetree.core.*;
 public class AcgmCode
         implements GraphCode {
 
+
+
+    @Override
+    public CodeFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected) {
+        return (new AcgmCodeFragment(vLabel, eLabel,isConnected));
+    }
+
+    @Override
+    public List<ArrayList<CodeFragment>> computeCanonicalCode(int labels_length) {
+        List<ArrayList<CodeFragment>> codeList = new ArrayList<>(labels_length);
+        for (int i = 0; i < labels_length; i++) {
+            ArrayList<CodeFragment> code = new ArrayList<>(1);
+            code.add(new AcgmCodeFragment((byte) i, 0));
+            codeList.add(code);
+        }
+        return codeList;
+    }
+
     @Override
     public List<CodeFragment> computeCanonicalCode(Graph g, int b) {
         final int n = g.order();
@@ -130,20 +148,30 @@ public class AcgmCode
         }
 
         for (int v = openBitSet.nextSetBit(0); v != -1; v = openBitSet.nextSetBit(++v)) {
-
             if (!childrenVlabel.contains(g.vertices[v])) {
                 continue;
             }
-
             for (int i = 0; i < depth; ++i) {
                 final int u = info.vertexIDs[i];
                 eLabels[i] = g.edges[u][v];
             }
-
             frags.add(new Pair<CodeFragment, SearchInfo>(
                     new AcgmCodeFragment(g.vertices[v], eLabels), new AcgmSearchInfo(info, v)));
         }
 
         return frags;
     }
+
+    @Override
+    public boolean isCanonical(Graph g, ArrayList<CodeFragment> c) {
+        List<CodeFragment> gCanonivalCode = computeCanonicalCode(g,10000);
+        for(int i=0;i<gCanonivalCode.size();i++){
+            if(!gCanonivalCode.get(i).equals(c.get(i))){
+                return false;
+            }
+        }
+        return true;
+    }
+
+   
 }

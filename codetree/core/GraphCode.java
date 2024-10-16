@@ -14,4 +14,10 @@ public interface GraphCode {
     abstract List<Pair<CodeFragment, SearchInfo>> enumerateFollowableFragments(Graph g, SearchInfo info,
             HashSet<Byte> adjLabels, BitSet childEdgeFrag);
 
+    abstract List<ArrayList<CodeFragment>> computeCanonicalCode(int labels_length);
+
+    abstract CodeFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected);
+
+    abstract boolean isCanonical(Graph g, ArrayList<CodeFragment> c);
+
 }

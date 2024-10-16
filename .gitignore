@@ -1,2 +1,5 @@
 aido99sd.sdf
 launch.json
+*.pdf
+*.txt
+*.gfu
