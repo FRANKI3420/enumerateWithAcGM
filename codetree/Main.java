@@ -6,27 +6,50 @@ import java.nio.file.*;
 
 import codetree.common.*;
 import codetree.core.*;
-
 import codetree.vertexBased.AcgmCode;
-import codetree.vertexBased.XAcgmCode;
-import codetree.edgeBased.DfsCode;
-
 
 class Main {
+    private static String sdfFilename = "aido99sd.sdf";
+    private static GraphCode graphCode = new AcgmCode();
     static int id = 0;
     static BufferedWriter bw;
     static BufferedWriter bw2;
-    public static void main(String[] args) {
+    static CodeTree tree;
+    static int sigma;
+    static int eLabelNum;
+    static int finish = 3;
+    static boolean runPython = true;
 
-        byte sigma = 1;
-        byte edgeLabelNum = 1;
+    public static void main(String[] args) {
+        List<Graph> G = SdfFileReader.readFile(Paths.get(sdfFilename));
+        System.out.println("G size: " + G.size());
+
+        // int sigma = dataBaseSigma(G);
+        // sigma =  VertexLabel.size();
+        // eLabelNum  = dataBaseElabel(G);
+        sigma =  3;
+        eLabelNum  = 3;
+        boolean filter = false;
+
+        long start = System.nanoTime();
+        tree  =new CodeTree(graphCode, G, 100);
+        System.out.println("Build tree: " + (System.nanoTime() - start) / 1000 / 1000 + "msec");
+
+        startEnumarate(filter);
+
+        if(runPython){
+            RunPythonFromJava();
+        }
+    }
+
+    private static void startEnumarate(boolean filter) {
 
         List<ArrayList<CodeFragment>> codeList = graphCode.computeCanonicalCode(sigma);
         try{
             bw =  Files.newBufferedWriter(Paths.get("output.gfu"));
             bw2 = Files.newBufferedWriter(Paths.get("outputAcGMcode.txt"));
             long start = System.nanoTime();
-            enumarateWithAcGM(codeList,sigma,edgeLabelNum);
+            enumarateWithAcGM(codeList,filter);
             System.out.println("実行時間："+(System.nanoTime()-start)/1000/1000+"ms");
             System.out.println("実行時間："+(System.nanoTime()-start)/1000/1000/1000+"s");
             System.out.println("ans num: "+id);
@@ -35,82 +58,35 @@ class Main {
         } catch (IOException e) {
             System.exit(1);
         }
-
-        System.exit(0);
-
-        parseArgs(args);
-
-        List<Graph> G = SdfFileReader.readFile(Paths.get(sdfFilename));
-        // G = G.subList(0, 200);
-
-        ArrayList<Pair<Integer, Graph>> Q = new ArrayList<>();
-        for (int i = 0; i < G.size(); ++i) {
-            Graph g = G.get(i);
-
-            final int size = g.size();
-            if (34 <= size && size <= 36 && g.isConnected()) {
-                Q.add(new Pair<Integer, Graph>(i, g));
-            }
-        }
-
-        System.out.println("G size: " + G.size());
-        System.out.println("Q size: " + Q.size());
-
-        long start = System.nanoTime();
-        CodeTree tree = new CodeTree(graphCode, G, 100);
-        System.out.println("Build tree: " + (System.nanoTime() - start) / 1000 / 1000 + "msec");
-
-        G = null;
-
-        Path out = Paths.get("output.txt");
-        try (BufferedWriter bw = Files.newBufferedWriter(out)) {
-            start = System.nanoTime();
-
-            int total_answer_num = 0;
-
-            for (Pair<Integer, Graph> q : Q) {
-                List<Integer> result = tree.supergraphSearch(q.right);
-                bw.write(q.left.toString() + result.toString() + "\n");
-                total_answer_num += result.size();
-            }
-
-            final long time = System.nanoTime() - start;
-            System.out.println((time) + " nano sec");
-            System.out.println((time / 1000 / 1000) + " msec");
-            System.out.println("|A| " + total_answer_num);
-        } catch (IOException e) {
-            System.exit(1);
-        }
     }
 
-    private static void enumarateWithAcGM(List<ArrayList<CodeFragment>> codeLsit, byte sigma,byte eLabelNum) throws IOException {
+    private static void enumarateWithAcGM(List<ArrayList<CodeFragment>> codeLsit,boolean filter) throws IOException {
         for(ArrayList<CodeFragment> c:codeLsit){
-            Graph g = generateGraph(c, id);//AcGMcode2graph
+            Graph g = generateGraphAddElabel(c, id);//AcGMcode2graph
             // print(c,true);
-            // if(g.isConnected() && graphCode.isCanonical(g,c)){//g is a connected graph and g is canonical then
             if(c.get(c.size()-1).getIsConnected() && graphCode.isCanonical(g,c)){//g is a connected graph and g is canonical then
                 print(c,false);//output g
-                g.writeGraph2Gfu(bw);//output g
+                g.writeGraph2GfuAddeLabel(bw);//output g
                 id++;
-                if(c.size()==7){
+                if(c.size()==finish){
                     continue;
                 }
                 List<ArrayList<CodeFragment>> childrenOfM1 = new ArrayList<>();
                 ArrayList<CodeFragment> anotherList=getAnotherList(c,codeLsit);//anotherList ← a sublist of list whose head is M1;
                 byte lastVlabel = c.get(c.size()-1).getVlabel();
                 for(CodeFragment M2:anotherList){
-                    for(byte i=eLabelNum;i>=0;i--){
+                    for(byte i=(byte)eLabelNum;i>=0;i--){
                         for(byte j=0;j<=lastVlabel;j++){
-                            childrenOfM1.add(getChildrenOfM1(c,M2,j,i));
+                            childrenOfM1.add(getChildrenOfM1(c,M2,j,i,filter));
                         }
                     }
                 }
-                enumarateWithAcGM(childrenOfM1,sigma,eLabelNum);
+                enumarateWithAcGM(childrenOfM1,filter);
             }
         }
     }
 
-    private static ArrayList<CodeFragment> getChildrenOfM1(ArrayList<CodeFragment> c,CodeFragment M2, byte vLabel, byte eLabel) throws IOException {
+    private static ArrayList<CodeFragment> getChildrenOfM1(ArrayList<CodeFragment> c,CodeFragment M2, byte vLabel, byte eLabel,boolean filter) throws IOException {
         byte []eLabels = new byte[c.size()];
         boolean isConnected=false;
 
@@ -128,27 +104,30 @@ class Main {
             }
              eLabels[c.size()-1]=eLabel;
         }
-        // if(!c.get(c.size()-1).getIsConnected()){
-        //     isConnected =false;
-        // }
         CodeFragment leg = graphCode.generateCodeFragment(vLabel,eLabels,isConnected);
-        // CodeFragment leg = graphCode.generateCodeFragment(vLabel,eLabels,c.get(c.size()-1).getIsConnected());
         
         ArrayList<CodeFragment> child = new ArrayList<>(c);
         child.add(leg);
-        // print(child,true);
-        return child;
-    }
 
-    private boolean judgeIsConnected(byte[] eLabels) {
-        for(byte e : eLabels){
-            if(e==1){ 
-                return true;
+        if(filter){//未完成
+            if(isChildCodeExist(child)){
+                return null;
+            }else{
+                return child;
             }
+        }else{
+            return child;
         }
-        return false;
     }
 
+    private static boolean isChildCodeExist(ArrayList<CodeFragment> child) throws IOException {
+         List<Integer> result = tree.supergraphSearch(generateGraph(child, 0));
+         if(result.size()==0){
+            return false;
+         }else{
+            return true;
+         }
+    }
 
     private static ArrayList<CodeFragment> getAnotherList(ArrayList<CodeFragment> c, List<ArrayList<CodeFragment>> codeLsit) {
         ArrayList<CodeFragment> anotherList = new ArrayList<>();
@@ -205,40 +184,81 @@ class Main {
         return new Graph(id, vertices, edges);
     }
 
-    private static void parseArgs(String[] args) {
-        for (int i = 0; i < args.length; ++i) {
-            if (args[i].equals("-code")) {
-                if (args[++i].equals("acgm"))
-                    graphCode = new AcgmCode();
-                else if (args[i].equals("xacgm"))
-                    graphCode = new XAcgmCode();
-                else if (args[i].equals("dfs"))
-                    graphCode = new DfsCode();
-                else {
-                    System.err.println("無効なグラフコード: " + args[i]);
-                    System.exit(1);
+    static Graph generateGraphAddElabel(List<CodeFragment> code, int id) {
+        byte[] vertices = new byte[code.size()];
+        byte[][] edges = new byte[code.size()][code.size()];
+        int index = 0;
+        for (CodeFragment c : code) {
+            vertices[index] = c.getVlabel();
+            byte eLabels[] = c.getelabel();
+            if (eLabels == null) {
+                if (index < code.size() - 1) {
+                    edges[index][index + 1] = 1;
+                    edges[index + 1][index] = 1;
                 }
-            } else if (sdfFilename == null) {
-                sdfFilename = args[i];
             } else {
-                System.err.println("無効な引数: " + args[i]);
-                System.exit(1);
+                for (int i = 0; i < eLabels.length; i++) {
+                    if (eLabels[i] > 0) {
+                        edges[index][i] = eLabels[i];
+                        edges[i][index] = eLabels[i];
+                    }
+                }
             }
+            index++;
         }
-
-        if (sdfFilename == null) {
-            System.err.print("入力ファイルを指定してください -> ");
-            Scanner sc = new Scanner(System.in);
-            sdfFilename = sc.nextLine();
-        }
-
-        if (graphCode == null) {
-            graphCode = new AcgmCode();
-            System.out.println("AcGMコードで動作します");
-        }
+        return new Graph(id, vertices, edges);
     }
 
-    private static String sdfFilename = "aido99sd.sdf";
-    private static GraphCode graphCode = new AcgmCode();
-    // private static GraphCode graphCode = new XAcgmCode();
+     private static int dataBaseElabel(List<Graph> G) {
+        HashSet<Byte>elabels = new HashSet<>();
+        for(Graph g :G){
+            for(byte []edges:g.edges){
+                for(byte e:edges){
+                    elabels.add(e);
+                }
+            }
+        }
+        return elabels.size()-1;
+    }
+
+
+    private static int dataBaseSigma(List<Graph> G) {
+        int i = VertexLabel.size();
+        HashSet<Byte>labels = new HashSet<>();
+        for(Graph g :G){
+            for(byte v:g.vertices){
+                labels.add(v);
+            }
+        }
+        return labels.size();
+    }
+
+    static void RunPythonFromJava(){
+        try {
+            // Pythonスクリプトを実行する
+            ProcessBuilder pb = new ProcessBuilder("python", "draw_graph_edgeLabel.py", String.valueOf(sigma), String.valueOf(eLabelNum));
+            Process process = pb.start();
+
+            // Pythonスクリプトの出力を取得する
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            // 標準エラー出力の取得
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            while ((line = errorReader.readLine()) != null) {
+                System.out.println("ERROR: " + line);  // エラーメッセージを確認
+            }
+
+            // プロセスが終了するのを待つ
+            int exitCode = process.waitFor();
+            if(exitCode==0){
+                System.out.println("Program exited successfully.");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

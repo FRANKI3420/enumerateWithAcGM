@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import codetree.core.Graph;
 
 public class SdfFileReader {
+
     public static List<Graph> readFile(Path sdfFile) {
         ArrayList<Graph> G = new ArrayList<>();
 

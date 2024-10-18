@@ -25,6 +25,10 @@ public class VertexLabel {
     // "F",
     // "Cl", "S", "N", "O", "C", "H" });
 
+    public static int size(){
+        return atoms.size();
+    }
+
     public static String id2string(int id) {
         if (id >= atoms.size()) {
             throw new IllegalArgumentException("Undefined label id.");

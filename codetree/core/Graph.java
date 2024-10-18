@@ -175,7 +175,6 @@ public class Graph
     }
 
     public void writeGraph2Gfu(BufferedWriter bw2) throws IOException {
-
         bw2.write("#" + id + "\n");
         bw2.write(order() + "\n");
         for (int i = 0; i < order(); i++) {
@@ -187,6 +186,23 @@ public class Graph
             for (int j = i; j < order(); j++) {
                 if (edges[i][j] > 0) {
                     bw2.write(i + " " + j + "\n");
+                }
+            }
+        }
+        bw2.flush();
+    }
+    public void writeGraph2GfuAddeLabel(BufferedWriter bw2) throws IOException {
+        bw2.write("#" + id + "\n");
+        bw2.write(order() + "\n");
+        for (int i = 0; i < order(); i++) {
+            bw2.write(vertices[i] + "\n");
+        }
+
+        bw2.write(size() + "\n");
+        for (int i = 0; i < order(); i++) {
+            for (int j = i; j < order(); j++) {
+                if (edges[i][j] > 0) {
+                    bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
                 }
             }
         }

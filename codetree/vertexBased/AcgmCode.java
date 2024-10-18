@@ -77,6 +77,57 @@ public class AcgmCode
 
         return code;
     }
+    @Override
+    public List<CodeFragment> computeCanonicalCode(Graph g) {
+        final int n = g.order();
+        ArrayList<CodeFragment> code = new ArrayList<>(n);
+
+        ArrayList<AcgmSearchInfo> infoList1 = new ArrayList<>();
+        ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
+
+        final byte max = g.getMaxVertexLabel();
+        code.add(new AcgmCodeFragment(max, 0));
+
+        List<Integer> maxVertexList = g.getVertexList(max);
+        for (int v0 : maxVertexList) {
+            infoList1.add(new AcgmSearchInfo(g, v0));
+        }
+
+        for (int depth = 1; depth < n; ++depth) {
+            AcgmCodeFragment maxFrag = new AcgmCodeFragment((byte) -1, depth);
+
+            byte[] eLabels = new byte[depth];
+            for (AcgmSearchInfo info : infoList1) {
+                for (int v = 0; v < n; ++v) {
+                    if (!info.open.get(v)) {
+                        continue;
+                    }
+
+                    for (int i = 0; i < depth; ++i) {
+                        final int u = info.vertexIDs[i];
+                        eLabels[i] = g.edges[u][v];
+                    }
+
+                    AcgmCodeFragment frag = new AcgmCodeFragment(g.vertices[v], eLabels);
+                    final int cmpres = maxFrag.isMoreCanonicalThan(frag);
+                    if (cmpres < 0) {
+                        maxFrag = frag;
+                        infoList2.clear();
+                        infoList2.add(new AcgmSearchInfo(info, g, v));
+                    } else if (cmpres == 0 ) {
+                        infoList2.add(new AcgmSearchInfo(info, g, v));
+                    }
+                }
+            }
+
+            code.add(maxFrag);
+
+            infoList1 = infoList2;
+            infoList2 = new ArrayList<>();
+        }
+
+        return code;
+    }
 
     @Override
     public List<Pair<IndexNode, SearchInfo>> beginSearch(Graph g, IndexNode root) {
@@ -164,7 +215,7 @@ public class AcgmCode
 
     @Override
     public boolean isCanonical(Graph g, ArrayList<CodeFragment> c) {
-        List<CodeFragment> gCanonivalCode = computeCanonicalCode(g,10000);
+        List<CodeFragment> gCanonivalCode = computeCanonicalCode(g);
         for(int i=0;i<gCanonivalCode.size();i++){
             if(!gCanonivalCode.get(i).equals(c.get(i))){
                 return false;
