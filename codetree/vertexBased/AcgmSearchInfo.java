@@ -6,6 +6,7 @@ import codetree.core.*;
 
 final class AcgmSearchInfo
         implements SearchInfo {
+
     BitSet open;
     int[] vertexIDs;
 
@@ -14,9 +15,9 @@ final class AcgmSearchInfo
 
         open = new BitSet(n);
 
-        int[] adj = g.adjList[v0];
-        for (int u : adj) {
-            open.set(u, true);
+        BitSet adj = g.edgeBitset.get(v0);
+        for (int u = adj.nextSetBit(0); u != -1; u = adj.nextSetBit(++u)) {
+            open.set(u);
         }
 
         vertexIDs = new int[1];
@@ -33,10 +34,11 @@ final class AcgmSearchInfo
         vertexIDs[n] = v;
 
         open.set(v, false);
-        int[] adj = g.adjList[v];
-        for (int u : adj) {
+
+        BitSet adj = g.edgeBitset.get(v);
+        for (int u = adj.nextSetBit(0); u != -1; u = adj.nextSetBit(++u)) {
             if (contain(vertexIDs, u)) {
-                open.set(u, true);
+                open.set(u);
             }
         }
     }
@@ -54,5 +56,15 @@ final class AcgmSearchInfo
                 return false;
         }
         return true;
+    }
+
+    @Override
+    public BitSet getOpen() {
+        return this.open;
+    }
+
+    @Override
+    public int[] getVertexIDs() {
+        return this.vertexIDs;
     }
 }

@@ -7,6 +7,7 @@ import codetree.common.Pair;
 public interface GraphCode {
     abstract List<CodeFragment> computeCanonicalCode(Graph g, int b);
     abstract List<CodeFragment> computeCanonicalCode(Graph g);
+    abstract List<CodeFragment> computeCanonicalCode(Graph g, int start, int limDepth);
 
     abstract List<Pair<IndexNode, SearchInfo>> beginSearch(Graph g, IndexNode root);
 
@@ -17,8 +18,8 @@ public interface GraphCode {
 
     abstract List<ArrayList<CodeFragment>> computeCanonicalCode(int labels_length);
 
-    abstract CodeFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected);
 
+    abstract CodeFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected);
     abstract boolean isCanonical(Graph g, ArrayList<CodeFragment> c);
 
 }

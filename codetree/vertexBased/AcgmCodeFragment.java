@@ -1,12 +1,13 @@
 package codetree.vertexBased;
 
+import java.io.Serializable;
 import java.util.*;
 
 import codetree.common.VertexLabel;
 import codetree.core.*;
 
 class AcgmCodeFragment
-        implements CodeFragment {
+        implements CodeFragment,Serializable {
     final byte vLabel;
     final byte[] eLabels;
     final boolean isConnected;
@@ -22,29 +23,11 @@ class AcgmCodeFragment
         this.eLabels = eLabels.clone();
         isConnected = false;
     }
-    // AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean pastIsConnected) {
-    //     this.vLabel = vLabel;
-    //     this.eLabels = eLabels.clone();
-    //     if(!pastIsConnected){
-    //         this.isConnected = false;
-    //     }else{
-    //         this.isConnected = judgeIsConnected(eLabels);
-    //     }
-    // }
+    
     AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
-    }
-
-    //eLabelsの配列が全て0であれば、非連結である
-    private boolean judgeIsConnected(byte[] eLabels) {
-        for(byte e : eLabels){
-            if(e==1){ 
-                return true;
-            }
-        }
-        return false;
     }
 
     int isMoreCanonicalThan(AcgmCodeFragment other) {
@@ -88,6 +71,28 @@ class AcgmCodeFragment
         }
 
         return s;
+    }
+
+    @Override
+    public boolean bigger(CodeFragment other0) {
+        AcgmCodeFragment other = (AcgmCodeFragment) other0;
+
+        final int len = eLabels.length;
+        if (len != other.eLabels.length) {
+            throw new IllegalArgumentException("Compareing incompatible fragments.");
+        }
+
+        if (vLabel != other.vLabel) {
+            return false;
+        }
+
+        for (int i = 0; i < len; ++i) {
+            if (eLabels[i] == 0 && other.eLabels[i] > 0) {
+                return false;
+            }
+        }
+        return true;
+
     }
 
     @Override

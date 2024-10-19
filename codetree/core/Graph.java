@@ -2,27 +2,62 @@ package codetree.core;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 
 import codetree.common.*;
 
-public class Graph
+public class Graph implements Serializable
 {
     public final int id;
 
     public final byte[] vertices;
     public final byte[][] edges;
 
-    public final int[][] adjList;
+    public int[][] adjList;
 
-    public Graph(int id, byte[] vertices, byte[][] edges)
-    {
+    public int size;
+    public int order;
+    public BitSet filterFlag;
+    public HashMap<Integer, BitSet> edgeBitset;
+
+    public Graph(int id, byte[] vertices, byte[][] edges) {
         this.id = id;
         this.vertices = vertices;
         this.edges = edges;
-
-        adjList = makeAdjList();
+        this.order = this.order();
+        this.size = this.size();
+        filterFlag = new BitSet();
+        edgeBitset = this.getEdgeBitset();
     }
+
+    public Graph(int id, byte[] vertices, byte[][] edges, HashMap<Integer, BitSet> edgeBitset) {
+        this.id = id;
+        this.vertices = vertices;
+        this.edges = edges;
+        this.order = this.order();
+        this.size = this.size();
+        this.edgeBitset = edgeBitset;
+        filterFlag = new BitSet();
+    }
+
+    private HashMap<Integer, BitSet> getEdgeBitset() {
+
+        HashMap<Integer, BitSet> edgeBitset = new HashMap<>();
+
+        int n = order;
+        for (int i = 0; i < n; i++) {
+            BitSet value = new BitSet();
+            for (int j = 0; j < n; j++) {
+                if (edges[i][j] > 0) {
+                    value.set(j);
+                }
+            }
+            edgeBitset.put(i, value);
+        }
+        return edgeBitset;
+    }
+
 
     private int[][] makeAdjList()
     {
@@ -207,5 +242,91 @@ public class Graph
             }
         }
         bw2.flush();
+    }
+
+    public static int numOflabels(List<Graph> G) {
+        Set<Byte> label = new HashSet<>();
+
+        for (int i = 0; i < G.size(); i++) {
+            Graph g = G.get(i);
+            for (int v = 0; v < g.order(); ++v) {
+                label.add(g.vertices[v]);
+            }
+        }
+        return label.size();
+    }
+
+    public BitSet labels_Set() {
+
+        BitSet labels = new BitSet();
+        for (int v = 0; v < order; ++v) {
+            labels.set(vertices[v]);
+        }
+
+        return labels;
+    }
+
+    public HashSet<Integer> getTargetVertices(int limDepth, int start_vertice) {
+        HashSet<Integer> target = new HashSet<>();
+        target.add(start_vertice);
+        Random rand = new Random(0);
+        boolean[] visited = new boolean[order];
+        visited[start_vertice] = true;
+        BitSet open = new BitSet();
+        for (int v = edgeBitset.get(start_vertice).nextSetBit(0); v != -1; v = edgeBitset.get(start_vertice)
+                .nextSetBit(++v)) {
+            open.set(v);
+        }
+
+        for (int i = 0; i < limDepth - 1; i++) {
+            ArrayList<Integer> next = new ArrayList<>();
+
+            for (int v = open.nextSetBit(0); v != -1; v = open
+                    .nextSetBit(++v)) {
+                if (!visited[v]) {
+                    next.add(v);
+                }
+            }
+
+            if (next.size() == 0) {
+                return target;
+            }
+
+            int random = rand.nextInt(next.size());
+            start_vertice = next.get(random);
+            target.add(start_vertice);
+            visited[start_vertice] = true;
+            for (int v = edgeBitset.get(start_vertice).nextSetBit(0); v != -1; v = edgeBitset.get(start_vertice)
+                    .nextSetBit(++v)) {
+                open.set(v);
+            }
+        }
+        return target;
+    }
+
+    public Graph generateInducedGraph(HashSet<Integer> targetVertices) {
+
+        int n = targetVertices.size();
+        byte[] newvertices = new byte[n];
+        byte[][] newedges = new byte[n][n];
+        int count = 0;
+        for (int v : targetVertices) {
+            newvertices[count++] = vertices[v];
+        }
+        count = 0;
+        int count2 = 0;
+        for (int v : targetVertices) {
+            for (int u : targetVertices) {
+                if (edgeBitset.get(v).get(u)) {
+                    newedges[count][count2] = 1;
+                    newedges[count2][count] = 1;
+                }
+                count2++;
+            }
+            count++;
+            count2 = 0;
+        }
+
+        return new Graph(id, newvertices, newedges);
     }
 }
