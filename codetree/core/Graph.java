@@ -8,12 +8,12 @@ import codetree.common.*;
 
 public class Graph
 {
-    public final int id;
+    public  int id;
 
-    public final byte[] vertices;
-    public final byte[][] edges;
+    public  byte[] vertices;
+    public  byte[][] edges;
 
-    public final int[][] adjList;
+    public  int[][] adjList;
 
     public Graph(int id, byte[] vertices, byte[][] edges)
     {
@@ -189,7 +189,7 @@ public class Graph
                 }
             }
         }
-        bw2.flush();
+        // bw2.flush();
     }
     public void writeGraph2GfuAddeLabel(BufferedWriter bw2) throws IOException {
         bw2.write("#" + id + "\n");
@@ -199,13 +199,22 @@ public class Graph
         }
 
         bw2.write(size() + "\n");
-        for (int i = 0; i < order(); i++) {
-            for (int j = i; j < order(); j++) {
-                if (edges[i][j] > 0) {
+        for(int i=0;i<order();i++){
+            for(int j:adjList[i]){
+                if(i<=j){
                     bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
                 }
             }
         }
-        bw2.flush();
+
+        // for (int i = 0; i < order(); i++) {
+        //     for (int j = i; j < order(); j++) {
+        //         if (edges[i][j] > 0) {
+        //             bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
+        //         }
+        //     }
+        // }
+
+        // bw2.flush();
     }
 }

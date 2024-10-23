@@ -6,20 +6,20 @@ import codetree.common.Pair;
 import codetree.core.*;
 
 public class AcgmCode
-        implements GraphCode {
+        implements GraphCode,ObjectType {
 
-
+    public static Graph g;
 
     @Override
-    public CodeFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected) {
-        return (new AcgmCodeFragment(vLabel, eLabel,isConnected));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,int edges) {
+        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,edges));
     }
 
     @Override
-    public List<ArrayList<CodeFragment>> computeCanonicalCode(int labels_length) {
-        List<ArrayList<CodeFragment>> codeList = new ArrayList<>(labels_length);
+    public List<ArrayList<ObjectFragment>> computeCanonicalCode(int labels_length) {
+        List<ArrayList<ObjectFragment>> codeList = new ArrayList<>(labels_length);
         for (int i = 0; i < labels_length; i++) {
-            ArrayList<CodeFragment> code = new ArrayList<>(1);
+            ArrayList<ObjectFragment> code = new ArrayList<>(1);
             code.add(new AcgmCodeFragment((byte) i, 0));
             codeList.add(code);
         }
@@ -27,12 +27,12 @@ public class AcgmCode
     }
 
     @Override
-    public List<CodeFragment> computeCanonicalCode(Graph g, int b) {
+    public List<CodeFragment> computeCanonicalCode(Graph g, int c) {
         final int n = g.order();
         ArrayList<CodeFragment> code = new ArrayList<>(n);
 
         ArrayList<AcgmSearchInfo> infoList1 = new ArrayList<>();
-        ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>(b);
+        ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>(c);
 
         final byte max = g.getMaxVertexLabel();
         code.add(new AcgmCodeFragment(max, 0));
@@ -63,7 +63,7 @@ public class AcgmCode
                         maxFrag = frag;
                         infoList2.clear();
                         infoList2.add(new AcgmSearchInfo(info, g, v));
-                    } else if (cmpres == 0 && infoList2.size() < b) {
+                    } else if (cmpres == 0 && infoList2.size() < c) {
                         infoList2.add(new AcgmSearchInfo(info, g, v));
                     }
                 }
@@ -72,21 +72,25 @@ public class AcgmCode
             code.add(maxFrag);
 
             infoList1 = infoList2;
-            infoList2 = new ArrayList<>(b);
+            infoList2 = new ArrayList<>(c);
         }
 
         return code;
     }
     @Override
-    public List<CodeFragment> computeCanonicalCode(Graph g) {
+    public boolean computeCanonicalCode(Graph g,ArrayList<ObjectFragment> target) {
         final int n = g.order();
-        ArrayList<CodeFragment> code = new ArrayList<>(n);
+        ArrayList<ObjectFragment> code = new ArrayList<>(n);
 
         ArrayList<AcgmSearchInfo> infoList1 = new ArrayList<>();
         ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
 
         final byte max = g.getMaxVertexLabel();
         code.add(new AcgmCodeFragment(max, 0));
+
+        if(!code.get(0).equals(target.get(0))){
+            return false;
+        }
 
         List<Integer> maxVertexList = g.getVertexList(max);
         for (int v0 : maxVertexList) {
@@ -121,12 +125,15 @@ public class AcgmCode
             }
 
             code.add(maxFrag);
+            if(!code.get(depth).equals(target.get(depth))){
+                return false;
+            }
 
             infoList1 = infoList2;
             infoList2 = new ArrayList<>();
         }
 
-        return code;
+        return true;
     }
 
     @Override
@@ -214,15 +221,69 @@ public class AcgmCode
     }
 
     @Override
-    public boolean isCanonical(Graph g, ArrayList<CodeFragment> c) {
-        List<CodeFragment> gCanonivalCode = computeCanonicalCode(g);
-        for(int i=0;i<gCanonivalCode.size();i++){
-            if(!gCanonivalCode.get(i).equals(c.get(i))){
-                return false;
-            }
-        }
-        return true;
+    public boolean isCanonical(Graph g ,ArrayList<ObjectFragment> c) {
+        // Graph g = generateGraphAddElabel(c, id);
+        return computeCanonicalCode(g,c);
+        // List<CodeFragment> gCanonivalCode = computeCanonicalCode(g,c);
+        // for(int i=0;i<gCanonivalCode.size();i++){
+        //     if(!gCanonivalCode.get(i).equals(c.get(i))){
+        //         return false;
+        //     }
+        // }
+        // return true;
     }
 
-   
+    @Override
+    public Graph generateGraphAddElabel(List<ObjectFragment> code, int id) {
+        byte[] vertices = new byte[code.size()];
+        byte[][] edges = new byte[code.size()][code.size()];
+        int index = 0;
+        for (ObjectFragment c : code) {
+            vertices[index] = c.getVlabel();
+            byte eLabels[] = c.getelabel();
+            if (eLabels == null) {
+                if (index < code.size() - 1) {
+                    edges[index][index + 1] = 1;
+                    edges[index + 1][index] = 1;
+                }
+            } else {
+                for (int i = 0; i < eLabels.length; i++) {
+                    if (eLabels[i] > 0) {
+                        edges[index][i] = eLabels[i];
+                        edges[i][index] = eLabels[i];
+                    }
+                }
+            }
+            index++;
+        }
+        return new Graph(id, vertices, edges);
+    }
+
+    @Override
+    public Graph generateGraph(List<ObjectFragment> code, int id) {
+        byte[] vertices = new byte[code.size()];
+        byte[][] edges = new byte[code.size()][code.size()];
+        int index = 0;
+        for (ObjectFragment c : code) {
+            vertices[index] = c.getVlabel();
+            byte eLabels[] = c.getelabel();
+            if (eLabels == null) {
+                if (index < code.size() - 1) {
+                    edges[index][index + 1] = 1;
+                    edges[index + 1][index] = 1;
+                }
+            } else {
+
+                for (int i = 0; i < eLabels.length; i++) {
+                    if (eLabels[i] == 1) {
+                        edges[index][i] = 1;
+                        edges[i][index] = 1;
+                    }
+                }
+            }
+            index++;
+        }
+        return new Graph(id, vertices, edges);
+    }
+
 }
