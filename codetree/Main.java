@@ -2,15 +2,11 @@ package codetree;
 
 import java.util.*;
 import java.io.*;
-import java.nio.channels.FileChannel;
 import java.nio.file.*;
 
 import codetree.common.*;
 import codetree.core.*;
 import codetree.vertexBased.AcgmCode;
-import java.io.FileOutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 
 class Main {
     private static String sdfFilename = "aido99sd.sdf";
@@ -60,74 +56,6 @@ class Main {
             System.err.println(e);
         }
     }
-    // private static void startEnumarate(boolean filter) {
-
-    // List<ArrayList<ObjectFragment>> codeList =
-    // objectType.computeCanonicalCode(sigma);
-    // try (FileOutputStream fos = new FileOutputStream("output.gfu");
-    // FileChannel channel = fos.getChannel()) {
-    // long start = System.nanoTime();
-    // System.out.println("|V|<=" + finish + " |Σ|=" + sigma + " eLabelNum=" +
-    // eLabelNum);
-    // enumarateWithAcGM(codeList, filter, channel);
-    // System.out.println("実行時間：" + (System.nanoTime() - start) / 1000 / 1000 +
-    // "ms");
-    // System.out.println(
-    // "実行時間：" + String.format("%3f", (double) (System.nanoTime() - start) / 1000 /
-    // 1000 / 1000) + "s");
-    // System.out.println("ans num: " + id);
-    // // bw.close();
-    // // bw2.close();
-    // } catch (IOException e) {
-    // System.err.println(e);
-    // }
-    // }
-
-    // private static void enumarateWithAcGM(List<ArrayList<ObjectFragment>>
-    // codeLsit, boolean filter,
-    // FileChannel channel) throws IOException {
-    // int index = -1;
-    // for (ArrayList<ObjectFragment> c : codeLsit) {
-    // index++;
-    // // for(int k=0;k<codeLsit.size();k++){
-    // // ArrayList<ObjectFragment> c = codeLsit.get(k);
-    // if (c.get(c.size() - 1).getIsConnected()) {
-    // Graph g = objectType.generateGraphAddElabel(c, id);// AcGMcode2graph
-    // //
-    // if(c.get(c.size()-1).getEdges()==calculateCombination(c.size())||objectType.isCanonical(g,c)){//g
-    // // is a connected graph and g is canonical then
-    // if (objectType.isCanonical(g, c)) {// g is a connected graph and g is
-    // canonical then
-    // // print(c,true);//output g
-    // g.writeGraph2GfuAddeLabel(channel);// output g
-    // id++;
-    // if (c.size() == finish) {
-    // continue;
-    // }
-
-    // final byte lastVlabel = c.get(c.size() - 1).getVlabel();
-    // final int depth = c.size() - 1;
-    // ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, lastVlabel,
-    // index, depth);// anotherList
-    // // ←
-    // childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * lastVlabel);
-    // // CodeFragment[] childrenOfM1 = new CodeFragment[anotherList.size() *
-    // eLabelNum
-    // // * lastVlabel];
-    // for (ObjectFragment M2 : anotherList) {
-    // for (byte i = eLabelNum; i >= 0; i--) {
-    // for (byte j = 0; j <= lastVlabel; j++) {
-    // // childrenOfM1[j+eLabelNum-i] = getChildrenOfM1(c, M2, j, i, filter);
-    // childrenOfM1.add(getChildrenOfM1(c, M2, j, i, filter));
-    // }
-    // }
-    // }
-    // anotherList = null;
-    // enumarateWithAcGM(childrenOfM1, filter, channel);
-    // }
-    // }
-    // }
-    // }
 
     static List<ArrayList<ObjectFragment>> childrenOfM1 = new ArrayList<>();
 
@@ -135,12 +63,9 @@ class Main {
         int index = -1;
         for (ArrayList<ObjectFragment> c : codeLsit) {
             index++;
-            // for(int k=0;k<codeLsit.size();k++){
-            // ArrayList<ObjectFragment> c = codeLsit.get(k);
+            
             if (c.get(c.size() - 1).getIsConnected()) {
                 Graph g = objectType.generateGraphAddElabel(c, id);// AcGMcode2graph
-                // if(c.get(c.size()-1).getEdges()==calculateCombination(c.size())||objectType.isCanonical(g,c)){//g
-                // is a connected graph and g is canonical then
                 if (objectType.isCanonical(g, c)) {// g is a connected graph and g is canonical then
                     // print(c,true);//output g
                     g.writeGraph2GfuAddeLabel(bw);// output g
@@ -148,18 +73,13 @@ class Main {
                     if (c.size() == finish) {
                         continue;
                     }
-
                     final byte lastVlabel = c.get(c.size() - 1).getVlabel();
                     final int depth = c.size() - 1;
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, lastVlabel, index, depth);// anotherList
-                                                                                                               // ←
+                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, lastVlabel, index, depth);// anotherList                                                                                     // ←
                     childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * lastVlabel);
-                    // CodeFragment[] childrenOfM1 = new CodeFragment[anotherList.size() * eLabelNum
-                    // * lastVlabel];
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
                             for (byte j = 0; j <= lastVlabel; j++) {
-                                // childrenOfM1[j+eLabelNum-i] = getChildrenOfM1(c, M2, j, i, filter);
                                 childrenOfM1.add(getChildrenOfM1(c, M2, j, i, filter));
                             }
                         }
@@ -175,16 +95,6 @@ class Main {
             byte vLabel, byte eLabel, boolean filter) throws IOException {
         byte[] eLabels = new byte[c.size()];
         final boolean isConnected = (eLabel != 0 || M2.getIsConnected()) ? true : false;
-        // int edges =
-        // (eLabel!=0)?1+c.get(c.size()-1).getEdges():0+c.get(c.size()-1).getEdges();//辺の数
-        // byte []m2eLabels = M2.getelabel();
-
-        // for(int i=0;i<m2eLabels.length;i++){
-        // eLabels[i]=m2eLabels[i];
-        // // if(eLabels[i]!=0){
-        // // edges++;
-        // // }
-        // }
 
         System.arraycopy(M2.getelabel(), 0, eLabels, 0, c.size() - 1);
 
@@ -213,17 +123,12 @@ class Main {
         ArrayList<ObjectFragment> code;
 
         for (int i = index, len = codeLsit.size(); i < len; i++) {
-            // for (int i = index; i < codeLsit.size(); i++) {
             code = codeLsit.get(i);
             if (vLabel != code.get(depth).getVlabel())
                 continue;
             anotherList.add(code.get(depth));
         }
-        // for(ArrayList<ObjectFragment> code:codeLsit){
-        // if(vLabel!=code.get(depth).getVlabel())
-        // continue;
-        // anotherList.add(code.get(depth));
-        // }
+
         return anotherList;
     }
 

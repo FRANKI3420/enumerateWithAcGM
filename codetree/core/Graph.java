@@ -214,45 +214,4 @@ public class Graph {
 
         // bw2.flush();
     }
-
-    // public void writeGraph2GfuAddeLabel(FileChannel channel) throws IOException {
-    // // バッファサイズを大きく設定（例: 64KB）
-    // ByteBuffer buffer = ByteBuffer.allocate(512 * 1024);
-
-    // // データをバッファに一括で書き込む
-    // buffer.put(("#" + id + "\n").getBytes());
-    // buffer.put((order() + "\n").getBytes());
-
-    // // 頂点情報を効率的に書き込む
-    // for (int i = 0; i < order(); i++) {
-    // buffer.put((vertices[i] + "\n").getBytes());
-    // if (buffer.remaining() < 256) {
-    // buffer.flip(); // バッファをフリップして読み取りモードにする
-    // channel.write(buffer); // チャンネルに書き込む
-    // buffer.clear(); // バッファをクリアして書き込みモードに戻す
-    // }
-    // }
-
-    // // 辺の情報を効率的に書き込む
-    // buffer.put((size() + "\n").getBytes());
-    // for (int i = 0; i < order(); i++) {
-    // for (int j : adjList[i]) {
-    // if (i <= j) {
-    // String edgeData = i + " " + j + " " + edges[i][j] + "\n";
-    // buffer.put(edgeData.getBytes());
-    // // バッファがいっぱいになったら書き込む
-    // if (buffer.remaining() < 256) {
-    // buffer.flip();
-    // channel.write(buffer);
-    // buffer.clear();
-    // }
-    // }
-    // }
-    // }
-
-    // // バッファに残っているデータを最後に書き込む
-    // buffer.flip();
-    // channel.write(buffer);
-    // buffer.clear();
-    // }
 }
