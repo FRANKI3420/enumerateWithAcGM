@@ -2,21 +2,22 @@ package codetree.core;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import codetree.common.*;
 
-public class Graph
-{
-    public  int id;
+public class Graph {
+    public int id;
 
-    public  byte[] vertices;
-    public  byte[][] edges;
+    public byte[] vertices;
+    public byte[][] edges;
 
-    public  int[][] adjList;
+    public int[][] adjList;
 
-    public Graph(int id, byte[] vertices, byte[][] edges)
-    {
+    public Graph(int id, byte[] vertices, byte[][] edges) {
         this.id = id;
         this.vertices = vertices;
         this.edges = edges;
@@ -24,8 +25,7 @@ public class Graph
         adjList = makeAdjList();
     }
 
-    private int[][] makeAdjList()
-    {
+    private int[][] makeAdjList() {
         final int n = order();
         int[][] adjList = new int[n][];
 
@@ -46,31 +46,32 @@ public class Graph
 
             adj.clear();
 
-            /*for (int i = 0; i + 1 < s; i++) {
-				int min = i;
-				for (int j = i + 1; j < s; j++) {
-					if (edges[v][adjList[v][min]] > edges[v][adjList[v][j]]
-							|| (edges[v][adjList[v][min]] == edges[v][adjList[v][j]] && vertices[adjList[v][min]] > vertices[adjList[v][j]]))
-						min = j;
-				}
-				if (min != i) {
-					int temp = adjList[v][i];
-					adjList[v][i] = adjList[v][min];
-					adjList[v][min] = temp;
-				}
-			}*/
+            /*
+             * for (int i = 0; i + 1 < s; i++) {
+             * int min = i;
+             * for (int j = i + 1; j < s; j++) {
+             * if (edges[v][adjList[v][min]] > edges[v][adjList[v][j]]
+             * || (edges[v][adjList[v][min]] == edges[v][adjList[v][j]] &&
+             * vertices[adjList[v][min]] > vertices[adjList[v][j]]))
+             * min = j;
+             * }
+             * if (min != i) {
+             * int temp = adjList[v][i];
+             * adjList[v][i] = adjList[v][min];
+             * adjList[v][min] = temp;
+             * }
+             * }
+             */
         }
 
         return adjList;
     }
 
-    public int order()
-    {
+    public int order() {
         return vertices.length;
     }
 
-    public int size()
-    {
+    public int size() {
         int s = 0;
 
         final int n = order();
@@ -85,8 +86,7 @@ public class Graph
         return s / 2;
     }
 
-    public Graph shrink()
-    {
+    public Graph shrink() {
         final byte H = VertexLabel.string2id("H");
 
         int[] map = new int[order()];
@@ -111,8 +111,7 @@ public class Graph
         return new Graph(id, vertices, edges);
     }
 
-    public boolean isConnected()
-    {
+    public boolean isConnected() {
         ArrayDeque<Integer> open = new ArrayDeque<>();
         ArrayList<Integer> closed = new ArrayList<>();
 
@@ -135,8 +134,7 @@ public class Graph
         return closed.size() == n;
     }
 
-    public byte getMaxVertexLabel()
-    {
+    public byte getMaxVertexLabel() {
         byte max = -1;
 
         for (int v = 0; v < order(); ++v) {
@@ -148,8 +146,7 @@ public class Graph
         return max;
     }
 
-    public byte getMinVertexLabel()
-    {
+    public byte getMinVertexLabel() {
         byte min = Byte.MAX_VALUE;
 
         for (int v = 0; v < order(); ++v) {
@@ -161,8 +158,7 @@ public class Graph
         return min;
     }
 
-    public List<Integer> getVertexList(byte label)
-    {
+    public List<Integer> getVertexList(byte label) {
         ArrayList<Integer> res = new ArrayList<>();
 
         for (int v = 0; v < order(); ++v) {
@@ -191,6 +187,7 @@ public class Graph
         }
         // bw2.flush();
     }
+
     public void writeGraph2GfuAddeLabel(BufferedWriter bw2) throws IOException {
         bw2.write("#" + id + "\n");
         bw2.write(order() + "\n");
@@ -199,22 +196,63 @@ public class Graph
         }
 
         bw2.write(size() + "\n");
-        for(int i=0;i<order();i++){
-            for(int j:adjList[i]){
-                if(i<=j){
-                    bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
+        for (int i = 0; i < order(); i++) {
+            for (int j : adjList[i]) {
+                if (i <= j) {
+                    bw2.write(i + " " + j + " " + edges[i][j] + "\n");
                 }
             }
         }
 
         // for (int i = 0; i < order(); i++) {
-        //     for (int j = i; j < order(); j++) {
-        //         if (edges[i][j] > 0) {
-        //             bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
-        //         }
-        //     }
+        // for (int j = i; j < order(); j++) {
+        // if (edges[i][j] > 0) {
+        // bw2.write(i + " " + j +" "+ edges[i][j]+"\n");
+        // }
+        // }
         // }
 
         // bw2.flush();
     }
+
+    // public void writeGraph2GfuAddeLabel(FileChannel channel) throws IOException {
+    // // バッファサイズを大きく設定（例: 64KB）
+    // ByteBuffer buffer = ByteBuffer.allocate(512 * 1024);
+
+    // // データをバッファに一括で書き込む
+    // buffer.put(("#" + id + "\n").getBytes());
+    // buffer.put((order() + "\n").getBytes());
+
+    // // 頂点情報を効率的に書き込む
+    // for (int i = 0; i < order(); i++) {
+    // buffer.put((vertices[i] + "\n").getBytes());
+    // if (buffer.remaining() < 256) {
+    // buffer.flip(); // バッファをフリップして読み取りモードにする
+    // channel.write(buffer); // チャンネルに書き込む
+    // buffer.clear(); // バッファをクリアして書き込みモードに戻す
+    // }
+    // }
+
+    // // 辺の情報を効率的に書き込む
+    // buffer.put((size() + "\n").getBytes());
+    // for (int i = 0; i < order(); i++) {
+    // for (int j : adjList[i]) {
+    // if (i <= j) {
+    // String edgeData = i + " " + j + " " + edges[i][j] + "\n";
+    // buffer.put(edgeData.getBytes());
+    // // バッファがいっぱいになったら書き込む
+    // if (buffer.remaining() < 256) {
+    // buffer.flip();
+    // channel.write(buffer);
+    // buffer.clear();
+    // }
+    // }
+    // }
+    // }
+
+    // // バッファに残っているデータを最後に書き込む
+    // buffer.flip();
+    // channel.write(buffer);
+    // buffer.clear();
+    // }
 }
