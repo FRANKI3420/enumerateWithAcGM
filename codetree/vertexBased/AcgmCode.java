@@ -16,12 +16,10 @@ public class AcgmCode
     }
 
     @Override
-    public List<ArrayList<ObjectFragment>> computeCanonicalCode(int labels_length) {
-        List<ArrayList<ObjectFragment>> codeList = new ArrayList<>(labels_length);
+    public List<ObjectFragment> computeCanonicalCode(int labels_length) {
+        List<ObjectFragment> codeList = new ArrayList<>(labels_length);
         for (int i = 0; i < labels_length; i++) {
-            ArrayList<ObjectFragment> code = new ArrayList<>(1);
-            code.add(new AcgmCodeFragment((byte) i, 0));
-            codeList.add(code);
+            codeList.add(new AcgmCodeFragment((byte) (labels_length - 1 - i), 0));
         }
         return codeList;
     }
@@ -78,7 +76,7 @@ public class AcgmCode
         return code;
     }
     @Override
-    public boolean computeCanonicalCode(Graph g,ArrayList<ObjectFragment> target) {
+    public boolean computeCanonicalCode(Graph g,List<ObjectFragment> target) {
         final int n = g.order();
         ArrayList<ObjectFragment> code = new ArrayList<>(n);
 
@@ -221,7 +219,7 @@ public class AcgmCode
     }
 
     @Override
-    public boolean isCanonical(Graph g ,ArrayList<ObjectFragment> c) {
+    public boolean isCanonical(Graph g ,List<ObjectFragment> c) {
         // Graph g = generateGraphAddElabel(c, id);
         return computeCanonicalCode(g,c);
         // List<CodeFragment> gCanonivalCode = computeCanonicalCode(g,c);
