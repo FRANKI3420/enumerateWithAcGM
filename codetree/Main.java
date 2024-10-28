@@ -13,6 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.*;
 
 class Main {
+    
     private static String sdfFilename = "aido99sd.sdf";
     private static GraphCode graphCode = new AcgmCode();
     private static ObjectType objectType = new AcgmCode();
