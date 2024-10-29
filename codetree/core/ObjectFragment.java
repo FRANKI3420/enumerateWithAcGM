@@ -9,5 +9,5 @@ public interface ObjectFragment {
     public abstract byte[] getelabel();
     public abstract boolean getIsConnected();
     public abstract int getEdges();
-
+    public abstract boolean getAallElabelSame();
 }

@@ -11,12 +11,14 @@ class AcgmCodeFragment
     final byte[] eLabels;
     final boolean isConnected;
     final int edges;
+    final boolean allElabelSame;
 
     AcgmCodeFragment(byte vLabel, int length) {
         this.vLabel = vLabel;
         eLabels = new byte[length];
         isConnected =true;
         edges = 0;
+        allElabelSame=true;
     }
 
     AcgmCodeFragment(byte vLabel, byte[] eLabels) {
@@ -24,6 +26,7 @@ class AcgmCodeFragment
         this.eLabels = eLabels.clone();
         isConnected = false;
         edges = 0;
+        allElabelSame = true;
     }
     // AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean pastIsConnected) {
     //     this.vLabel = vLabel;
@@ -34,11 +37,12 @@ class AcgmCodeFragment
     //         this.isConnected = judgeIsConnected(eLabels);
     //     }
     // }
-    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected,int edges) {
+    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected,int edges,boolean allElabelSame) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
         this.edges = edges;
+        this.allElabelSame = allElabelSame;
     }
 
     //eLabelsの配列が全て0であれば、非連結である
@@ -110,5 +114,9 @@ class AcgmCodeFragment
     @Override
     public int getEdges(){
         return this.edges;
+    }
+    @Override
+    public boolean getAallElabelSame(){
+        return this.allElabelSame;
     }
 }

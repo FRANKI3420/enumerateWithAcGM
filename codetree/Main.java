@@ -13,20 +13,19 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.*;
 
 class Main {
-    
-    private static String sdfFilename = "aido99sd.sdf";
     private static GraphCode graphCode = new AcgmCode();
     private static ObjectType objectType = new AcgmCode();
     static int id = 0;
     static BufferedWriter bw;
     static BufferedWriter bw2;
     static CodeTree tree;
-    static int sigma;
+    static byte sigma;
     static byte eLabelNum;
     static int finish;
     static boolean runPython = false;
     static final boolean filter = false;
     static ArrayList<ObjectFragment> anotherList = new ArrayList<>();
+    static byte maxVlabel;
 
 
     public static void main(String[] args) {
@@ -51,8 +50,9 @@ class Main {
             System.out.println("|V|<=" + finish + " |Σ|=" + sigma + " eLabelNum=" +
             eLabelNum);
             long start = System.nanoTime();
-            List<ObjectFragment> codeList = new CopyOnWriteArrayList<>();
+            List<ObjectFragment> codeList = new ArrayList<>();
             codeList = objectType.computeCanonicalCode(sigma);
+            maxVlabel = (byte) (sigma-1);
             System.out.println("逐次処理");
             enumarateWithAcGM(codeList,new ArrayList<>());
             System.out.println("実行時間：" + (System.nanoTime() - start) / 1000 / 1000 +
@@ -157,8 +157,7 @@ private static void processFragment(ObjectFragment c,List<ObjectFragment> codeLi
                 List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if (objectType.isCanonical(g, nowFragments)) {
-                    // print(nowFragments,true);//output g
+                if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
                     g.writeGraph2GfuAddeLabel(bw);
                     id++;
                     if (nowFragments.size() == finish) {
@@ -184,15 +183,18 @@ private static void processFragment(ObjectFragment c,List<ObjectFragment> codeLi
             byte eLabel) throws IOException {
         int depth = M2.getelabel().length+1;
         byte[] eLabels = new byte[depth];
-
+        boolean allElabelSame = true;
         final int edges =  eLabel != 0 ? M2.getEdges()+1 : M2.getEdges();
         final boolean isConnected = edges != 0 ? true : false;
+        if(depth>1){
+            allElabelSame = M2.getelabel()[depth-2]==eLabel && M2.getAallElabelSame() ? true:false;
+        }
 
         System.arraycopy(M2.getelabel(), 0, eLabels, 0, depth - 1);
 
         eLabels[depth-1] = eLabel;
 
-        return  objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, edges);
+        return  objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, edges,allElabelSame);
 
         // if (filter) {// 未完成
         //     if (isChildCodeExist(child)) {
@@ -211,14 +213,17 @@ private static void processFragment(ObjectFragment c,List<ObjectFragment> codeLi
 
         anotherList.clear();
 
-        ObjectFragment c;
-        //兄の中で非連結なフラグメントのみ追加
-        for (int i = 0; i < index; i++) {
-            c =codeLsit.get(i); 
-            if(c.getIsConnected())
-                continue;
-            anotherList.add(c);
+        if(sigma>1 && maxVlabel!=vLabel){
+            // 兄の中で非連結なフラグメントのみ追加
+            ObjectFragment c;
+            for (int i = 0; i < index; i++) {
+                c =codeLsit.get(i); 
+                if(c.getIsConnected())
+                    continue;
+                anotherList.add(c);   
+            }
         }
+        
         //自身を含めて弟のフラグメントを追加
         for (int i = index, len = codeLsit.size(); i < len; i++) {
             anotherList.add(codeLsit.get(i));
