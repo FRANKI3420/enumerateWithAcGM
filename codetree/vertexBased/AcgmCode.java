@@ -11,8 +11,8 @@ public class AcgmCode
     public static Graph g;
 
     @Override
-    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,int edges,boolean allElabelSame) {
-        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,edges,allElabelSame));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame) {
+        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,allElabelSame));
     }
 
     @Override

@@ -3,7 +3,7 @@ package codetree.core;
 import java.util.*;
 
 public interface ObjectType {
-    abstract ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,int edges,boolean allElabelSame);
+    abstract ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame);
 
     abstract boolean isCanonical(Graph g ,List<ObjectFragment> c);
 

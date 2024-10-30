@@ -10,8 +10,6 @@ import codetree.vertexBased.AcgmCode;
 import java.nio.file.attribute.BasicFileAttributes;
 
 
-import java.util.concurrent.*;
-
 class Main {
     private static GraphCode graphCode = new AcgmCode();
     private static ObjectType objectType = new AcgmCode();
@@ -32,9 +30,6 @@ class Main {
         sigma = 1;
         eLabelNum = 1;
         finish = 9;
-
-        // test();
-        removeResultDirectory();
 
         startEnumarate();
 
@@ -85,78 +80,20 @@ class Main {
         }
     }
 
-    static int num = 0;
     private static void enumarateWithAcGMParallel(List<ObjectFragment>codeList,List<ObjectFragment>pastFragments) throws IOException {
-    ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-    try {
-        List<Future<?>> futures = new ArrayList<>();
-
-        for (int index = 0; index < codeList.size(); index++) {
-            ObjectFragment c = codeList.get(index); 
-            if (c.getIsConnected()) {
-                List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
-                nowFragments.add(c);
-
-                final int currentIdx = index;
-                num++;
-                futures.add(executorService.submit(() -> {
-                    // String fileName = "result\\output_thread_" + num + ".gfu";
-                    // try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(fileName), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-                    //     processFragment(c, currentIdx, codeList, bw);
-                    // } catch (IOException e) {
-                    //     e.printStackTrace();
-                    // }
-                    processFragment(c,codeList, currentIdx, nowFragments, bw);
-                    
-                }));
-            }
-        }
-        // すべてのタスクの完了を待機
-        for (Future<?> future : futures) {
-            future.get();
-        }
-    } catch (Exception e) {
-        e.printStackTrace();
-    } finally {
-        executorService.shutdown();
-    }
-}
-
-private static void processFragment(ObjectFragment c,List<ObjectFragment> codeList, int index,List<ObjectFragment> nowFragments, BufferedWriter bw) {
-    try {
-            Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if (objectType.isCanonical(g, nowFragments)) {
-                    // print(nowFragments,true);//output g
-                    g.writeGraph2GfuAddeLabel(bw);
-                    id++;
-                    if (nowFragments.size() == finish) {
-                        return;
-                    }
-                    final byte vLabel = c.getVlabel();
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index,vLabel);
-                    final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
-                    for (ObjectFragment M2 : anotherList) {
-                        for (byte i = eLabelNum; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                        }
-                    }
-                    anotherList = null;
-                    g = null;
-                    enumarateWithAcGM(childrenOfM1,nowFragments);
-                }
         
-    } catch (IOException e) {
-        e.printStackTrace();
     }
-}
+
+    private static void processFragment(ObjectFragment c,List<ObjectFragment> codeList, int index,List<ObjectFragment> nowFragments, BufferedWriter bw) {
+    }
 
     private static void enumarateWithAcGM(List<ObjectFragment> codeLsit,List<ObjectFragment>pastFragments) throws IOException {
-        for(int index = 0;index<codeLsit.size();index++){
-            ObjectFragment c= codeLsit.get(index);
+        for(int index = 0,len=codeLsit.size();index<len;index++){
+            final ObjectFragment c= codeLsit.get(index);
             if (c.getIsConnected()) {
                 List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
-                Graph g = objectType.generateGraphAddElabel(nowFragments, id);
+                final Graph g = objectType.generateGraphAddElabel(nowFragments, id);
                 if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
                     g.writeGraph2GfuAddeLabel(bw);
                     id++;
@@ -164,47 +101,37 @@ private static void processFragment(ObjectFragment c,List<ObjectFragment> codeLi
                         continue;
                     }
                     final byte vLabel = c.getVlabel();
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, index,vLabel);
+                    final ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, index,vLabel);
                     final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
                             childrenOfM1.add(getChildrenOfM1(M2, i));
                         }
                     }
-                    anotherList = null;
-                    g = null;
                     enumarateWithAcGM(childrenOfM1,nowFragments);
                 }
             }
         }
     }
 
-    private static ObjectFragment getChildrenOfM1(ObjectFragment M2,
-            byte eLabel) throws IOException {
-        int depth = M2.getelabel().length+1;
+    private static ObjectFragment getChildrenOfM1(ObjectFragment M2,byte eLabel) throws IOException {
+        final int depth = M2.getelabel().length+1;
         byte[] eLabels = new byte[depth];
         boolean allElabelSame = true;
-        final int edges =  eLabel != 0 ? M2.getEdges()+1 : M2.getEdges();
-        final boolean isConnected = edges != 0 ? true : false;
+        boolean isConnected;
         if(depth>1){
+            isConnected = eLabel>0 || M2.getIsConnected() ? true : false;
             allElabelSame = M2.getelabel()[depth-2]==eLabel && M2.getAallElabelSame() ? true:false;
+        }else{
+            isConnected = eLabel>0 ? true:false;
         }
 
         System.arraycopy(M2.getelabel(), 0, eLabels, 0, depth - 1);
 
         eLabels[depth-1] = eLabel;
 
-        return  objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, edges,allElabelSame);
+        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected,allElabelSame);
 
-        // if (filter) {// 未完成
-        //     if (isChildCodeExist(child)) {
-        //         return null;
-        //     } else {
-        //         return child;
-        //     }
-        // } else {
-        //     return child;
-        // }
     }
 
 
@@ -229,88 +156,6 @@ private static void processFragment(ObjectFragment c,List<ObjectFragment> codeLi
             anotherList.add(codeLsit.get(i));
         }
         return anotherList;
-    }
-
-    // private static void enumarateWithAcGM(List<ArrayList<ObjectFragment>> codeLsit) throws IOException {
-    //     int index = -1;
-    //     for (ArrayList<ObjectFragment> c : codeLsit) {
-    //         index++;
-    //         if (c.get(c.size() - 1).getIsConnected()) {
-    //             Graph g = objectType.generateGraphAddElabel(c, id);
-    //             if (objectType.isCanonical(g, c)) {
-    //                 // print(c,true);//output g
-    //                 g.writeGraph2GfuAddeLabel(bw);
-    //                 id++;
-    //                 if (c.size() == finish) {
-    //                     continue;
-    //                 }
-    //                 final byte lastVlabel = c.get(c.size() - 1).getVlabel();
-    //                 final int depth = c.size() - 1;
-    //                 ArrayList<ObjectFragment> anotherList = getAnotherList(codeLsit, lastVlabel, index, depth);
-    //                 List<ArrayList<ObjectFragment>> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * lastVlabel);
-    //                 for (ObjectFragment M2 : anotherList) {
-    //                     for (byte i = eLabelNum; i >= 0; i--) {
-    //                         for (byte j = 0; j <= lastVlabel; j++) {
-    //                             childrenOfM1.add(getChildrenOfM1(c, M2, j, i));
-    //                         }
-    //                     }
-    //                 }
-    //                 anotherList = null;
-    //                 g = null;
-    //                 enumarateWithAcGM(childrenOfM1);
-    //             }
-    //         }
-    //     }
-    // }
-    // private static ArrayList<ObjectFragment> getAnotherList(
-    //         List<ArrayList<ObjectFragment>> codeLsit, byte vLabel, int index, int depth) {
-    //     anotherList.clear();
-    //     ArrayList<ObjectFragment> code;
-
-    //     for (int i = index, len = codeLsit.size(); i < len; i++) {
-    //         code = codeLsit.get(i);
-    //         if (vLabel != code.get(depth).getVlabel())
-    //             continue;
-    //         anotherList.add(code.get(depth));
-    //     }
-
-    //     return anotherList;
-    // }
-
-    // private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> c, ObjectFragment M2,
-    //         byte vLabel, byte eLabel) throws IOException {
-    //     byte[] eLabels = new byte[c.size()];
-    //     final boolean isConnected = (eLabel != 0 || M2.getIsConnected()) ? true : false;
-
-    //     System.arraycopy(M2.getelabel(), 0, eLabels, 0, c.size() - 1);
-
-    //     eLabels[c.size() - 1] = eLabel;
-
-    //     ObjectFragment leg = objectType.generateCodeFragment(vLabel, eLabels, isConnected, 0);
-    //     ArrayList<ObjectFragment> child = new ArrayList<>(c);
-    //     child.add(leg);
-
-    //     if (filter) {// 未完成
-    //         if (isChildCodeExist(child)) {
-    //             return null;
-    //         } else {
-    //             return child;
-    //         }
-    //     } else {
-    //         return child;
-    //     }
-    // }
-
-
-
-    private static boolean isChildCodeExist(ArrayList<ObjectFragment> child) throws IOException {
-        // List<Integer> result = tree.supergraphSearch(generateGraph(child, 0));
-        List<Integer> result = new ArrayList<>();
-        if (result.size() == 0) {
-            return false;
-        } else {
-            return true;
-        }
     }
 
     private static void print(List<ObjectFragment> code, boolean output) throws IOException {// AcGMコード可視化
