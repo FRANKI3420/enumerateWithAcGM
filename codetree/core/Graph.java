@@ -188,20 +188,24 @@ public class Graph {
         // bw2.flush();
     }
 
-    public void writeGraph2GfuAddeLabel(BufferedWriter bw2) throws IOException {
-        bw2.write("#" + id + "\n");
-        bw2.write(order() + "\n");
-        for (int i = 0; i < order(); i++) {
-            bw2.write(vertices[i] + "\n");
-        }
+    public void writeGraph2GfuAddeLabel(BufferedWriter bw2) {
+        try {
+            bw2.write("#" + id + "\n");
+            bw2.write(order() + "\n");
+            for (int i = 0; i < order(); i++) {
+                bw2.write(vertices[i] + "\n");
+            }
 
-        bw2.write(size() + "\n");
-        for (int i = 0; i < order(); i++) {
-            for (int j : adjList[i]) {
-                if (i <= j) {
-                    bw2.write(i + " " + j + " " + edges[i][j] + "\n");
+            bw2.write(size() + "\n");
+            for (int i = 0; i < order(); i++) {
+                for (int j : adjList[i]) {
+                    if (i <= j) {
+                        bw2.write(i + " " + j + " " + edges[i][j] + "\n");
+                    }
                 }
             }
+         } catch (Exception e) {
+            e.printStackTrace();
         }
 
         // for (int i = 0; i < order(); i++) {

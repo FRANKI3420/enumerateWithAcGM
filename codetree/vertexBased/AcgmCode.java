@@ -8,8 +8,6 @@ import codetree.core.*;
 public class AcgmCode
         implements GraphCode,ObjectType {
 
-    public static Graph g;
-
     @Override
     public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame) {
         return (new AcgmCodeFragment(vLabel, eLabel,isConnected,allElabelSame));
@@ -84,13 +82,12 @@ public class AcgmCode
         ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
 
         final byte max = g.getMaxVertexLabel();
-        code.add(new AcgmCodeFragment(max, 0));
-
-        if(!code.get(0).equals(target.get(0))){
+        if(max!=target.get(0).getVlabel()){
             return false;
         }
+        code.add(new AcgmCodeFragment(max, 0));
 
-        List<Integer> maxVertexList = g.getVertexList(max);
+        final List<Integer> maxVertexList = g.getVertexList(max);
         for (int v0 : maxVertexList) {
             infoList1.add(new AcgmSearchInfo(g, v0));
         }

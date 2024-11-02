@@ -41,16 +41,6 @@ class AcgmCodeFragment
         this.allElabelSame = allElabelSame;
     }
 
-    //eLabelsの配列が全て0であれば、非連結である
-    private boolean judgeIsConnected(byte[] eLabels) {
-        for(byte e : eLabels){
-            if(e==1){ 
-                return true;
-            }
-        }
-        return false;
-    }
-
     int isMoreCanonicalThan(AcgmCodeFragment other) {
         final int res = vLabel - other.vLabel;
         return res != 0 ? res : Arrays.compare(eLabels, other.eLabels);
