@@ -9,8 +9,8 @@ public class AcgmCode
         implements GraphCode,ObjectType {
 
     @Override
-    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame) {
-        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,allElabelSame));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected) {
+        return (new AcgmCodeFragment(vLabel, eLabel,isConnected));
     }
 
     @Override

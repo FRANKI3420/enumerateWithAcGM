@@ -12,7 +12,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 
 
@@ -25,7 +24,7 @@ class Main {
     private static byte sigma;
     private static byte eLabelNum;
     private static int finish;
-    private static boolean runPython = false;
+    private static final boolean runPython = false;
     private static final boolean filter = false;
     private static byte maxVlabel;
 
@@ -33,8 +32,8 @@ class Main {
     public static void main(String[] args) {
         sigma = 1;
         eLabelNum = 1;
-        finish = 8;
-        final boolean parallel = false;
+        finish = 9;
+        final boolean parallel = true;
 
         if(!parallel){
             try {
@@ -128,7 +127,7 @@ class Main {
                 List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
                 final Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
+                if (objectType.isCanonical(g, nowFragments)) {
                     synchronized (bw) {
                         g.writeGraph2GfuAddeLabel(bw); 
                         id++;
@@ -162,7 +161,7 @@ class Main {
                 List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
+                if(objectType.isCanonical(g, nowFragments)) {
                     g.writeGraph2GfuAddeLabel(bw);
                     id++;
                     if (nowFragments.size() == finish) {
@@ -185,11 +184,9 @@ class Main {
     private static ObjectFragment getChildrenOfM1(ObjectFragment M2,byte eLabel){
         final int depth = M2.getelabel().length+1;
         byte[] eLabels = new byte[depth];
-        boolean allElabelSame = true;
         boolean isConnected;
         if(depth>1){
             isConnected = eLabel>0 || M2.getIsConnected() ? true : false;
-            allElabelSame = M2.getelabel()[depth-2]==eLabel && M2.getAallElabelSame() ? true:false;
         }else{
             isConnected = eLabel>0 ? true:false;
         }
@@ -198,7 +195,7 @@ class Main {
 
         eLabels[depth-1] = eLabel;
 
-        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected,allElabelSame);
+        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected);
 
     }
 
