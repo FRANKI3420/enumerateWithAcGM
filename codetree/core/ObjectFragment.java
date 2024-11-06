@@ -9,4 +9,6 @@ public interface ObjectFragment {
     public abstract byte[] getelabel();
     public abstract boolean getIsConnected();
     public abstract boolean getAallElabelSame();
+    // public abstract boolean getIsCanonical();
+    public abstract boolean getIsMaxLabel();
 }

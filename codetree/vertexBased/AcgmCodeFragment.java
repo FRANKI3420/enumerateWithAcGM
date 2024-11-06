@@ -11,12 +11,14 @@ class AcgmCodeFragment
     final byte[] eLabels;
     final boolean isConnected;
     final boolean allElabelSame;
+    final boolean isMaxLabel;
 
     AcgmCodeFragment(byte vLabel, int length) {
         this.vLabel = vLabel;
         eLabels = new byte[length];
         isConnected =true;
         allElabelSame=true;
+        isMaxLabel = true;
     }
 
     AcgmCodeFragment(byte vLabel, byte[] eLabels) {
@@ -24,6 +26,7 @@ class AcgmCodeFragment
         this.eLabels = eLabels.clone();
         isConnected = false;
         allElabelSame = true;
+        isMaxLabel = true;
     }
     // AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean pastIsConnected) {
     //     this.vLabel = vLabel;
@@ -34,11 +37,12 @@ class AcgmCodeFragment
     //         this.isConnected = judgeIsConnected(eLabels);
     //     }
     // }
-    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected,boolean allElabelSame) {
+    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected,boolean allElabelSame,boolean isMaxLabel) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
         this.allElabelSame = allElabelSame;
+        this.isMaxLabel = isMaxLabel;
     }
 
     int isMoreCanonicalThan(AcgmCodeFragment other) {
@@ -101,5 +105,10 @@ class AcgmCodeFragment
     @Override
     public boolean getAallElabelSame(){
         return this.allElabelSame;
+    }
+    
+    @Override
+    public boolean getIsMaxLabel(){
+        return this.isMaxLabel;
     }
 }

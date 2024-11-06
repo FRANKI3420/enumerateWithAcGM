@@ -14,10 +14,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-
-
 class Main {
     private static ObjectType objectType = new AcgmCode();
+    private static GraphCode graphCode = new AcgmCode();
     private static int id = 0;
     private static BufferedWriter bw;
     private static BufferedWriter bw2;
@@ -33,7 +32,7 @@ class Main {
     public static void main(String[] args) {
         sigma = 1;
         eLabelNum = 1;
-        finish = 8;
+        finish = 6;
         final boolean parallel = false;
 
         if(!parallel){
@@ -141,13 +140,20 @@ class Main {
                     final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
+                            childrenOfM1.add(getChildrenOfM1(c,M2, i));
                         }
                     }
                 
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
+                }else{
+                    try {
+                        print(nowFragments,true);
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
                 }
             }
         }
@@ -155,6 +161,7 @@ class Main {
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
+    static int num = 0;
     private static void enumarateWithAcGM(List<ObjectFragment> codeList,List<ObjectFragment>pastFragments) throws IOException {
         for(int index = 0,len=codeList.size();index<len;index++){
             final ObjectFragment c= codeList.get(index);
@@ -162,7 +169,21 @@ class Main {
                 List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
+               
+                // if (c.getIsMaxLabel()&&!objectType.isCanonical(g, nowFragments)) {
+                //         System.out.println(graphCode.computeCanonicalCode(g, 100000));
+                //         print(nowFragments,true);
+                //         System.out.println(num++);
+                // }
+                if (objectType.isCanonical(g, nowFragments)) {
+                // if (c.getIsMaxLabel()) {
+                //     System.out.println("max");
+                //     print(nowFragments, true);
+                
+                // if (c.getAallElabelSame() || objectType.isCanonical(g, nowFragments)) {
+                // if (c.getIsMaxLabel() || objectType.isCanonical(g, nowFragments)) {
+                // if (c.getIsCanonical() || objectType.isCanonical(g, nowFragments)) {
+                    // System.out.println(nowFragments);
                     g.writeGraph2GfuAddeLabel(bw);
                     id++;
                     if (nowFragments.size() == finish) {
@@ -173,38 +194,64 @@ class Main {
                     final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
+                            childrenOfM1.add(getChildrenOfM1(c,M2, i));
                         }
                     }
                     enumarateWithAcGM(childrenOfM1,nowFragments);
+                }else{
+                    // System.out.println(nowFragments);
                 }
             }
         }
     }
 
-    private static ObjectFragment getChildrenOfM1(ObjectFragment M2,byte eLabel){
+    private static ObjectFragment getChildrenOfM1(ObjectFragment c ,ObjectFragment M2,byte eLabel){
         final int depth = M2.getelabel().length+1;
         byte[] eLabels = new byte[depth];
         boolean allElabelSame = true;
         boolean isConnected;
+        boolean isMaxLabel = true;
         if(depth>1){
-            isConnected = eLabel>0 || M2.getIsConnected() ? true : false;
-            allElabelSame = M2.getelabel()[depth-2]==eLabel && M2.getAallElabelSame() ? true:false;
+            isConnected = eLabel>0 || M2.getIsConnected();
+            allElabelSame = M2.getelabel()[depth-2]==eLabel && M2.getAallElabelSame();
         }else{
-            isConnected = eLabel>0 ? true:false;
+            isConnected = eLabel>0;
         }
 
         System.arraycopy(M2.getelabel(), 0, eLabels, 0, depth - 1);
 
         eLabels[depth-1] = eLabel;
 
-        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected,allElabelSame);
+        isMaxLabel = M2.getIsMaxLabel() && getIsCanonical(eLabels);
+
+        // final boolean isCanonical = c.getAallElabelSame() && getIsCanonical(eLabels);
+        
+        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected,allElabelSame,isMaxLabel);
+        
+    }
+        
+        
+    private static boolean getIsCanonical(byte[] eLabels) {
+        // System.out.println(Arrays.toString(eLabels));
+        byte [] label = new byte[eLabelNum+1];
+        for(byte e:  eLabels){
+            label[e]++;
+        }
+        int index = 0;
+        for(int l =eLabelNum;l>=0;l--){
+            for(int i=0;i<label[l];i++){
+                // System.out.println(eLabels[index]);
+                // System.out.println(l);
+                if(eLabels[index++]!=l){
+                    return false;
+                }
+            }
+        }
+        return true;
 
     }
-
-
-    private static ArrayList<ObjectFragment> getAnotherList(
-            List<ObjectFragment> codeList,int index,byte vLabel) {
+        
+    private static ArrayList<ObjectFragment> getAnotherList(List<ObjectFragment> codeList,int index,byte vLabel) {
 
         final int len = codeList.size();
         ArrayList<ObjectFragment>anotherList = new ArrayList<>(len);

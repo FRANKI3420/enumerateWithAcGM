@@ -9,8 +9,8 @@ public class AcgmCode
         implements GraphCode,ObjectType {
 
     @Override
-    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame) {
-        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,allElabelSame));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected,boolean allElabelSame,boolean isMaxLabel) {
+        return (new AcgmCodeFragment(vLabel, eLabel,isConnected,allElabelSame,isMaxLabel));
     }
 
     @Override
@@ -121,6 +121,10 @@ public class AcgmCode
 
             code.add(maxFrag);
             if(!code.get(depth).equals(target.get(depth))){
+                // if(n-1==depth){
+                //     System.out.println("正:"+Arrays.toString(code.get(depth).getelabel()));
+                //     System.out.println("非:"+Arrays.toString(target.get(depth).getelabel()));
+                // }
                 return false;
             }
 
