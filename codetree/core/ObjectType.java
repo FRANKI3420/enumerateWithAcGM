@@ -9,7 +9,7 @@ public interface ObjectType {
 
     abstract boolean computeCanonicalCode(Graph g,List<ObjectFragment> c);
 
-    abstract List<ObjectFragment> computeCanonicalCode(int labels_length);
+    abstract ArrayList<ObjectFragment> computeCanonicalCode(int labels_length);
 
     abstract Graph generateGraphAddElabel(List<ObjectFragment> code, int id);
 

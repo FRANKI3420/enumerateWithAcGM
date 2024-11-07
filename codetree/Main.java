@@ -28,12 +28,11 @@ class Main {
     private static final boolean filter = false;
     private static byte maxVlabel;
 
-
     public static void main(String[] args) {
         sigma = 1;
         eLabelNum = 1;
         finish = 9;
-        final boolean parallel = true;
+        final boolean parallel = false;
 
         if(!parallel){
             try {
@@ -62,7 +61,7 @@ class Main {
             System.out.println("|V|<=" + finish + " |Σ|=" + sigma + " eLabelNum=" +
             eLabelNum);
             start = System.nanoTime();
-            List<ObjectFragment> codeList = objectType.computeCanonicalCode(sigma);
+            ArrayList<ObjectFragment> codeList = objectType.computeCanonicalCode(sigma);
             maxVlabel = (byte) (sigma-1);
             System.out.println("逐次処理");
             enumarateWithAcGM(codeList,new ArrayList<>());
@@ -89,11 +88,10 @@ class Main {
             id =0;
             System.out.println("並列処理:コア数 "+Runtime.getRuntime().availableProcessors());
             start = System.nanoTime();
-            List<ObjectFragment> codeList =  objectType.computeCanonicalCode(sigma);
+            ArrayList<ObjectFragment> codeList =  objectType.computeCanonicalCode(sigma);
             maxVlabel = (byte) (sigma-1);
             enumarateWithAcGMParallel(executorService, codeList,new ArrayList<>()).join();
         } finally {
-            start = System.nanoTime() - start;
             try {
                 executorService.shutdown();
                 if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
@@ -103,6 +101,7 @@ class Main {
                 executorService.shutdownNow();
                 e.printStackTrace();
             }
+            start = System.nanoTime() - start;
             System.out.println("実行時間：" + (start) / 1000 / 1000 +
                     "ms");
             System.out.println(
@@ -119,12 +118,12 @@ class Main {
         }
     }
 
-    private static CompletableFuture<Void> enumarateWithAcGMParallel(ExecutorService executorService,List<ObjectFragment>codeList,List<ObjectFragment>pastFragments){
+    private static CompletableFuture<Void> enumarateWithAcGMParallel(ExecutorService executorService,ArrayList<ObjectFragment>codeList,ArrayList<ObjectFragment>pastFragments){
         List<CompletableFuture<Void>> tasks = new ArrayList<>();
         for(int index = 0,len=codeList.size();index<len;index++){
             final ObjectFragment c= codeList.get(index);
             if (c.getIsConnected()) {
-                List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
+                ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
                 final Graph g = objectType.generateGraphAddElabel(nowFragments, id);
                 if (objectType.isCanonical(g, nowFragments)) {
@@ -133,57 +132,65 @@ class Main {
                         id++;
                     }
                     if (nowFragments.size() == finish) {
+                        codeList.set(index, null);
                         continue;
                     }
                     final byte vLabel = c.getVlabel();
-                    final List<ObjectFragment> anotherList = getAnotherList(codeList, index,vLabel);
-                    final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
+                    final ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index,vLabel);
+                    final ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
                             childrenOfM1.add(getChildrenOfM1(M2, i));
                         }
                     }
-                
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
                 }
             }
+            codeList.set(index, null);
         }
         
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
-    private static void enumarateWithAcGM(List<ObjectFragment> codeList,List<ObjectFragment>pastFragments) throws IOException {
+    private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList,ArrayList<ObjectFragment>pastFragments) throws IOException {
         for(int index = 0,len=codeList.size();index<len;index++){
             final ObjectFragment c= codeList.get(index);
             if (c.getIsConnected()) {
-                List<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
-                nowFragments.add(c);
-                Graph g = objectType.generateGraphAddElabel(nowFragments, id);
-                if(objectType.isCanonical(g, nowFragments)) {
+                pastFragments.add(c);
+                // print(pastFragments, true);
+                final Graph g = objectType.generateGraphAddElabel(pastFragments, id);
+                if(objectType.isCanonical(g, pastFragments)) {
                     g.writeGraph2GfuAddeLabel(bw);
                     id++;
-                    if (nowFragments.size() == finish) {
+                    if (pastFragments.size() == finish) {
+                        pastFragments.remove(pastFragments.size() - 1);
+                        codeList.set(index, null);
                         continue;
                     }
                     final byte vLabel = c.getVlabel();
                     final ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index,vLabel);
-                    final List<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
+                    final ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>(anotherList.size() * eLabelNum * sigma);
                     for (ObjectFragment M2 : anotherList) {
                         for (byte i = eLabelNum; i >= 0; i--) {
                             childrenOfM1.add(getChildrenOfM1(M2, i));
                         }
                     }
-                    enumarateWithAcGM(childrenOfM1,nowFragments);
+                    enumarateWithAcGM(childrenOfM1,pastFragments);
+                    childrenOfM1.clear();
+                    anotherList.clear();
                 }
+                pastFragments.remove(pastFragments.size() - 1);
             }
+            codeList.set(index, null);
         }
     }
 
-    private static ObjectFragment getChildrenOfM1(ObjectFragment M2,byte eLabel){
+    private static ObjectFragment getChildrenOfM1(final ObjectFragment M2,final byte eLabel){
         final int depth = M2.getelabel().length+1;
-        byte[] eLabels = new byte[depth];
+        byte[] eLabels = new byte[M2.getelabel().length+1];
+        
         boolean isConnected;
         if(depth>1){
             isConnected = eLabel>0 || M2.getIsConnected() ? true : false;
@@ -201,7 +208,7 @@ class Main {
 
 
     private static ArrayList<ObjectFragment> getAnotherList(
-            List<ObjectFragment> codeList,int index,byte vLabel) {
+            final List<ObjectFragment> codeList,final int index,final byte vLabel) {
 
         final int len = codeList.size();
         ArrayList<ObjectFragment>anotherList = new ArrayList<>(len);

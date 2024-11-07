@@ -14,8 +14,8 @@ public class AcgmCode
     }
 
     @Override
-    public List<ObjectFragment> computeCanonicalCode(int labels_length) {
-        List<ObjectFragment> codeList = new ArrayList<>(labels_length);
+    public ArrayList<ObjectFragment> computeCanonicalCode(int labels_length) {
+        ArrayList<ObjectFragment> codeList = new ArrayList<>(labels_length);
         for (int i = 0; i < labels_length; i++) {
             codeList.add(new AcgmCodeFragment((byte) (labels_length - 1 - i), 0));
         }
