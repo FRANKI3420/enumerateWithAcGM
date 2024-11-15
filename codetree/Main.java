@@ -28,6 +28,7 @@ class Main {
     private static BufferedWriter bw;
     private static BufferedWriter bw2;
     private static BufferedWriter bw3;
+    private static BufferedWriter bw4;
     static {
         try {
             bw = Files.newBufferedWriter(
@@ -36,6 +37,8 @@ class Main {
                     Paths.get("outputParallel.gfu"));
             bw3 = Files.newBufferedWriter(
                     Paths.get("outputAcGMcode.txt"));
+            bw4 = Files.newBufferedWriter(
+                    Paths.get("all_result.csv"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -43,29 +46,48 @@ class Main {
     private static final boolean RUN_PYTHON = false;
     private static byte SIGMA = 1;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 8;
+    private static int FINISH = 5;
     private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
+    private static final String[] OPTIONS = { "再帰", "スタック" };
+    private static final String[] MODES = { "SINGLE", "PARALLEL", "MIXED" };
+    private static long baseMemory;
 
     public static void main(String[] args) {
-        final boolean PARALLEL = true;
-        final boolean SINGLE_And_PARALLEL = true;
-        final boolean USING_STACK = true;
-        System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
+        // メモリ使用量の基準点を記録
+        Runtime runtime = Runtime.getRuntime();
+        runtime.gc(); // GCを呼び出して初期のメモリ状態を安定させる（任意）
+        baseMemory = runtime.totalMemory() - runtime.freeMemory(); // 実行時の基準メモリ使用量
 
+        System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
         try {
-            if (!PARALLEL) {
-                startEnumarate(USING_STACK);
-            } else {
-                startEnumarateParallel(SINGLE_And_PARALLEL, USING_STACK);
+            bw4.write("|V|,|Σ|,ELABELNUM,param,コア数,実行方法,DFSの方法,実行時間[ms],実行時間[s],シングルスレッドの発見解割合,解数,最大メモリ使用量[MB]\n");
+            for (String mode : MODES) {
+                for (String usingStack : OPTIONS) {
+                    bw4.write(FINISH + "," + SIGMA + "," + ELABELNUM + "," + PARAM + "," + AVAILABLE_PROCESSORS + ",");
+                    bw4.write(mode + "," + usingStack + ",");
+                    if (mode.equals("SINGLE")) {
+                        startEnumarate(usingStack.equals("再帰"));
+                    } else {
+                        startEnumarateParallel(mode.equals("MIXED"), usingStack.equals("再帰"));
+                    }
+                    double maxMemoryUsedInMB = maxMemoryUsed
+                            / (1024.0 * 1024.0);
+                    System.out.println(String.format("最大メモリ使用量: %.1f MB", maxMemoryUsedInMB));
+
+                    bw4.write(String.format("%.1f", maxMemoryUsedInMB) + "\n");
+                    id = 0;
+                    id2 = 0;
+                    singleThreadCount = 0;
+                    multiThreadCount = 0;
+                    singleTasks.clear();
+                    maxMemoryUsed = 0;
+                    System.out.println("**********************************");
+                }
             }
             fileClose();
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        double maxMemoryUsedInMB = maxMemoryUsed
-                / (1024.0 * 1024.0);
-        System.out.println(String.format("最大メモリ使用量: %.1f MB", maxMemoryUsedInMB));
 
         if (RUN_PYTHON) {
             RunPythonFromJava();
@@ -85,12 +107,17 @@ class Main {
                 System.out.println("再帰");
                 enumarateWithAcGM(codeList, new ArrayList<>());
             }
-            System.out.println("実行時間：" + (System.nanoTime() - start) / 1000 / 1000 +
+            long finsh = System.nanoTime();
+            System.out.println("実行時間：" + (finsh - start) / 1000 / 1000 +
                     "ms");
             System.out.println(
-                    "実行時間: " + String.format("%.2f", (double) (System.nanoTime() - start) / 1000 / 1000 / 1000) + "s");
+                    "実行時間: " + String.format("%.2f", (double) (finsh - start) / 1000 / 1000 / 1000) + "s");
 
             System.out.println("ans num: " + id2);
+
+            bw4.write((finsh - start) / 1000 / 1000 + "," +
+                    String.format("%.2f", (double) (finsh - start) / 1000 / 1000 / 1000) + "," + "-," + id2 + ",");
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -106,8 +133,16 @@ class Main {
             System.out.println("コア数 " + AVAILABLE_PROCESSORS);
             if (SINGLE_And_PARALLEL) {
                 System.out.println("マルチスレッド&シングルスレッド\n閾値=" + PARAM);
-                bw = Files.newBufferedWriter(Paths.get("outputSingle.gfu"));
-
+                bw = Files.newBufferedWriter(
+                        Paths.get("outputSingle.gfu"),
+                        StandardOpenOption.CREATE, // ファイルが存在しない場合は作成
+                        StandardOpenOption.TRUNCATE_EXISTING // ファイルが存在する場合は内容を空にする
+                );
+                bw2 = Files.newBufferedWriter(
+                        Paths.get("outputParallel.gfu"),
+                        StandardOpenOption.CREATE, // ファイルが存在しない場合は作成
+                        StandardOpenOption.TRUNCATE_EXISTING // ファイルが存在する場合は内容を空にする
+                );
                 if (USING_STACK) {
                     System.out.println("スタック");
                     enumerateWithAcGMSingleAndParallelUsingStack(executorService, codeList, new ArrayList<>()).join();
@@ -151,18 +186,28 @@ class Main {
                 e.printStackTrace();
             }
             // MergeTextFiles();
-            start = System.nanoTime() - start;
-            System.out.println("実行時間：" + (start) / 1000 / 1000 +
+            long finsh = System.nanoTime();
+            System.out.println("実行時間：" + (finsh - start) / 1000 / 1000 +
                     "ms");
             System.out.println(
-                    "実行時間：" + String.format("%.1f", (double) (start) / 1000 /
+                    "実行時間：" + String.format("%.1f", (double) (finsh - start) / 1000 /
                             1000 / 1000) + "s");
             System.out.println("ans num: " + (id + id2));
             if (SINGLE_And_PARALLEL) {
+                bw4.write((finsh - start) / 1000 / 1000 + "," +
+                        String.format("%.2f", (double) (finsh - start) / 1000 / 1000 / 1000) + "," + String
+                                .format("%.2f%%", (double) id2 / (id + id2) * 100)
+                        + ","
+                        + (id + id2)
+                        + ",");
                 System.out.println("ans num(single thread): " + (id2));
                 System.out.println("ans num(multi thread): " + (id));
                 System.out.println("シングルスレッドの発見解割合: " + String.format("%.2f%%", (double) id2 / (id + id2) * 100));
                 System.out.println("マルチスレッドスレッドの発見解割合: " + String.format("%.2f%%", (double) id / (id + id2) * 100));
+            } else {
+                bw4.write((finsh - start) / 1000 / 1000 + "," +
+                        String.format("%.2f", (double) (finsh - start) / 1000 / 1000 / 1000) + "," + "-," + (id + id2)
+                        + ",");
             }
         }
     }
@@ -252,6 +297,7 @@ class Main {
             ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
         List<CompletableFuture<Void>> tasks = new ArrayList<>();// 非同期タスクの管理
         UpdatamaxMemoryUsed();
+        multiThreadCount++;
         for (int index = 0, len = codeList.size(); index < len; index++) {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
@@ -603,13 +649,12 @@ class Main {
         System.out.println("Available Memory: " + (double) availableMemory / 1024 / 1024 / 1024 + " GB");
     }
 
-    @SuppressWarnings("unused")
     private static void UpdatamaxMemoryUsed() {
         Runtime runtime = Runtime.getRuntime();
 
         long currentMemoryUsed = runtime.totalMemory() - runtime.freeMemory();
 
-        maxMemoryUsed = Math.max(maxMemoryUsed, currentMemoryUsed);
+        maxMemoryUsed = Math.max(maxMemoryUsed, currentMemoryUsed - baseMemory);
     }
 
     private static void mergeFiles(String[] inputFiles, String outputFile) {
@@ -645,6 +690,7 @@ class Main {
         bw.close();
         bw2.close();
         bw3.close();
+        bw4.close();
     }
 
     static void RunPythonFromJava() {
