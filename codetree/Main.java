@@ -41,14 +41,14 @@ class Main {
         }
     }
     private static final boolean RUN_PYTHON = false;
-    private static byte SIGMA = 1;
+    private static byte SIGMA = 2;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 8;
+    private static int FINISH = 5;
     private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
 
     public static void main(String[] args) {
-        final boolean PARALLEL = true;
-        final boolean SINGLE_And_PARALLEL = true;
+        final boolean PARALLEL = false;
+        final boolean SINGLE_And_PARALLEL = false;
         final boolean USING_STACK = true;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
 
@@ -194,11 +194,11 @@ class Main {
                         }
                     }
                     anotherList = null;
+                    codeList.set(index, null);
                     enumarateWithAcGM(childrenOfM1, pastFragments);
                 }
                 pastFragments.remove(pastFragments.size() - 1);
             }
-            codeList.set(index, null);
         }
     }
 
@@ -243,7 +243,6 @@ class Main {
                     }
                     currentPastFragments.remove(currentPastFragments.size() - 1);
                 }
-                currentCodeList.set(index, null);
             }
         }
     }
@@ -276,6 +275,7 @@ class Main {
                         }
                     }
                     anotherList = null;
+                    codeList.set(index, null);
                     ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
 
                     if (shouldRunInParallel(threadPoolExecutor)) {
@@ -297,7 +297,6 @@ class Main {
 
                 }
             }
-            codeList.set(index, null);
         }
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
@@ -330,6 +329,7 @@ class Main {
                         }
                     }
                     anotherList = null;
+                    codeList.set(index, null);
 
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
@@ -337,7 +337,6 @@ class Main {
 
                 }
             }
-            codeList.set(index, null);
         }
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
@@ -404,7 +403,6 @@ class Main {
                                         enumerateWithAcGMUsingStack(childrenOfM1, nowFragments);
                                     }
                                 }
-                                currentCodeList.set(index, null);
                             }
                         }
                     } catch (Exception e) {
@@ -477,7 +475,6 @@ class Main {
                                     stack.push(new Frame(childrenOfM1, new ArrayList<>(nowFragments), 0));
                                 }
                             }
-                            currentCodeList.set(index, null);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -549,8 +546,9 @@ class Main {
 
         if (SIGMA > 1 && maxVlabel != vLabel) {
             // 兄の中で非連結なフラグメントのみ追加
-            for (ObjectFragment c : codeList) {
-                if (c.getIsConnected())
+            for (int i = 0; i < index; i++) {
+                ObjectFragment c = codeList.get(i);
+                if (c == null || c.getIsConnected())
                     continue;
                 anotherList.add(c);
             }
