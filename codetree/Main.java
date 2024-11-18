@@ -46,7 +46,7 @@ class Main {
     private static final boolean RUN_PYTHON = false;
     private static byte SIGMA = 2;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 5;
+    private static int FINISH = 10;
     private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
     private static final String[] OPTIONS = { "再帰", "スタック" };
     private static final String[] MODES = { "SINGLE", "PARALLEL", "MIXED" };
@@ -55,14 +55,14 @@ class Main {
     public static void main(String[] args) {
         // メモリ使用量の基準点を記録
         Runtime runtime = Runtime.getRuntime();
-        runtime.gc(); // GCを呼び出して初期のメモリ状態を安定させる（任意）
-        baseMemory = runtime.totalMemory() - runtime.freeMemory(); // 実行時の基準メモリ使用量
 
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
         try {
             bw4.write("|V|,|Σ|,ELABELNUM,param,コア数,実行方法,DFSの方法,実行時間[ms],実行時間[s],シングルスレッドの発見解割合,解数,最大メモリ使用量[MB]\n");
             for (String mode : MODES) {
                 for (String usingStack : OPTIONS) {
+                    runtime.gc(); // GCを呼び出して初期のメモリ状態を安定させる（任意）
+                    baseMemory = runtime.totalMemory() - runtime.freeMemory(); // 実行時の基準メモリ使用量
                     bw4.write(FINISH + "," + SIGMA + "," + ELABELNUM + "," + PARAM + "," + AVAILABLE_PROCESSORS + ",");
                     bw4.write(mode + "," + usingStack + ",");
                     if (mode.equals("SINGLE")) {
