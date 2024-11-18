@@ -44,7 +44,7 @@ class Main {
         }
     }
     private static final boolean RUN_PYTHON = false;
-    private static byte SIGMA = 1;
+    private static byte SIGMA = 2;
     private static byte ELABELNUM = 1;
     private static int FINISH = 5;
     private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
@@ -66,7 +66,7 @@ class Main {
                     bw4.write(FINISH + "," + SIGMA + "," + ELABELNUM + "," + PARAM + "," + AVAILABLE_PROCESSORS + ",");
                     bw4.write(mode + "," + usingStack + ",");
                     if (mode.equals("SINGLE")) {
-                        startEnumarate(usingStack.equals("再帰"));
+                        startEnumarate(usingStack.equals("スタック"));
                     } else {
                         startEnumarateParallel(mode.equals("MIXED"), usingStack.equals("再帰"));
                     }
@@ -220,9 +220,9 @@ class Main {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
                 pastFragments.add(c);
-                // print(pastFragments, true);
                 Graph g = objectType.generateGraphAddElabel(pastFragments, 0);
                 if (objectType.isCanonical(g, pastFragments)) {
+                    // print(pastFragments, true);
                     g.writeGraph2GfuAddeLabel(bw);
                     g = null;
                     id2++;
@@ -238,12 +238,12 @@ class Main {
                             childrenOfM1.add(getChildrenOfM1(M2, i));
                         }
                     }
+                    codeList.set(index, null);
                     anotherList = null;
                     enumarateWithAcGM(childrenOfM1, pastFragments);
                 }
                 pastFragments.remove(pastFragments.size() - 1);
             }
-            codeList.set(index, null);
         }
     }
 
@@ -268,6 +268,7 @@ class Main {
                     currentPastFragments.add(c);
                     Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
                     if (objectType.isCanonical(g, currentPastFragments)) {
+                        // print(currentPastFragments, true);
                         g.writeGraph2GfuAddeLabel(bw);
                         g = null;
                         id2++;
@@ -288,7 +289,6 @@ class Main {
                     }
                     currentPastFragments.remove(currentPastFragments.size() - 1);
                 }
-                currentCodeList.set(index, null);
             }
         }
     }
@@ -322,6 +322,7 @@ class Main {
                         }
                     }
                     anotherList = null;
+                    codeList.set(index, null);
                     ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
 
                     if (shouldRunInParallel(threadPoolExecutor)) {
@@ -343,7 +344,7 @@ class Main {
 
                 }
             }
-            codeList.set(index, null);
+            // codeList.set(index, null);
         }
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
@@ -376,14 +377,14 @@ class Main {
                         }
                     }
                     anotherList = null;
-
+                    codeList.set(index, null);
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
 
                 }
             }
-            codeList.set(index, null);
+            // codeList.set(index, null);
         }
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
@@ -450,7 +451,7 @@ class Main {
                                         enumerateWithAcGMUsingStack(childrenOfM1, nowFragments);
                                     }
                                 }
-                                currentCodeList.set(index, null);
+                                // currentCodeList.set(index, null);
                             }
                         }
                     } catch (Exception e) {
@@ -523,7 +524,6 @@ class Main {
                                     stack.push(new Frame(childrenOfM1, new ArrayList<>(nowFragments), 0));
                                 }
                             }
-                            currentCodeList.set(index, null);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -595,8 +595,9 @@ class Main {
 
         if (SIGMA > 1 && maxVlabel != vLabel) {
             // 兄の中で非連結なフラグメントのみ追加
-            for (ObjectFragment c : codeList) {
-                if (c.getIsConnected())
+            for (int i = 0; i < index; i++) {
+                ObjectFragment c = codeList.get(i);
+                if (c == null || c.getIsConnected())
                     continue;
                 anotherList.add(c);
             }
