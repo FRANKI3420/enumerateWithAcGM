@@ -41,15 +41,15 @@ class Main {
         }
     }
     private static final boolean RUN_PYTHON = false;
-    private static byte SIGMA = 2;
+    private static byte SIGMA = 1;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 5;
+    private static int FINISH = 3;
     private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
 
     public static void main(String[] args) {
         final boolean PARALLEL = false;
         final boolean SINGLE_And_PARALLEL = false;
-        final boolean USING_STACK = true;
+        final boolean USING_STACK = false;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
 
         try {
@@ -169,9 +169,9 @@ class Main {
 
     private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments)
             throws IOException {
-        UpdatamaxMemoryUsed();
         singleThreadCount++;
         for (int index = 0, len = codeList.size(); index < len; index++) {
+            UpdatamaxMemoryUsed();
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
                 pastFragments.add(c);
@@ -205,47 +205,98 @@ class Main {
     private static void enumerateWithAcGMUsingStack(ArrayList<ObjectFragment> codeList,
             ArrayList<ObjectFragment> pastFragments)
             throws IOException {
-
-        Stack<Frame> stack = new Stack<>();
-        stack.push(new Frame(codeList, pastFragments, 0));
+        Stack<ArrayList<ObjectFragment>> stack = new Stack<>();
+        Stack<ArrayList<ObjectFragment>> pastFragmentsStack = new Stack<>();
+        stack.push(codeList);
+        pastFragmentsStack.push(new ArrayList<>(pastFragments));
 
         while (!stack.isEmpty()) {
-            singleThreadCount++;
-            UpdatamaxMemoryUsed();
-            Frame frame = stack.pop();
-            ArrayList<ObjectFragment> currentCodeList = frame.codeList;
-            ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
-            int startIndex = frame.index;
-
-            for (int index = startIndex, len = currentCodeList.size(); index < len; index++) {
-                final ObjectFragment c = currentCodeList.get(index);
-                if (c != null && c.getIsConnected()) {
+            ArrayList<ObjectFragment> currentList = stack.pop();
+            ArrayList<ObjectFragment> currentPastFragments = pastFragmentsStack.pop();
+            // UpdatamaxMemoryUsed();
+            for (int index = 0, len = currentList.size(); index < len; index++) {
+                UpdatamaxMemoryUsed();
+                final ObjectFragment c = currentList.get(index);
+                if (c.getIsConnected()) {
                     currentPastFragments.add(c);
                     Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
                     if (objectType.isCanonical(g, currentPastFragments)) {
                         g.writeGraph2GfuAddeLabel(bw);
-                        g = null;
                         id2++;
                         if (currentPastFragments.size() == FINISH) {
                             currentPastFragments.remove(currentPastFragments.size() - 1);
-                            currentCodeList.set(index, null);
+                            currentList.set(index, null);
                             continue;
                         }
-                        ArrayList<ObjectFragment> anotherList = getAnotherList(currentCodeList, index, c.getVlabel());
+
+                        ArrayList<ObjectFragment> anotherList = getAnotherList(currentList, index, c.getVlabel());
                         ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
                         for (ObjectFragment M2 : anotherList) {
                             for (byte i = ELABELNUM; i >= 0; i--) {
                                 childrenOfM1.add(getChildrenOfM1(M2, i));
                             }
                         }
+
+                        stack.push(childrenOfM1);
+                        pastFragmentsStack.push(new ArrayList<>(currentPastFragments));
+
                         anotherList = null;
-                        stack.push(new Frame(childrenOfM1, new ArrayList<>(currentPastFragments), 0));
+                        currentList.set(index, null);
                     }
                     currentPastFragments.remove(currentPastFragments.size() - 1);
                 }
             }
         }
     }
+
+    // private static void enumerateWithAcGMUsingStack(ArrayList<ObjectFragment>
+    // codeList,
+    // ArrayList<ObjectFragment> pastFragments)
+    // throws IOException {
+
+    // Stack<Frame> stack = new Stack<>();
+    // stack.push(new Frame(codeList, pastFragments, 0));
+
+    // while (!stack.isEmpty()) {
+    // singleThreadCount++;
+    // UpdatamaxMemoryUsed();
+    // Frame frame = stack.pop();
+    // ArrayList<ObjectFragment> currentCodeList = frame.codeList;
+    // ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
+    // int startIndex = frame.index;
+
+    // for (int index = startIndex, len = currentCodeList.size(); index < len;
+    // index++) {
+    // final ObjectFragment c = currentCodeList.get(index);
+    // if (c != null && c.getIsConnected()) {
+    // currentPastFragments.add(c);
+    // Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
+    // if (objectType.isCanonical(g, currentPastFragments)) {
+    // g.writeGraph2GfuAddeLabel(bw);
+    // g = null;
+    // id2++;
+    // if (currentPastFragments.size() == FINISH) {
+    // currentPastFragments.remove(currentPastFragments.size() - 1);
+    // currentCodeList.set(index, null);
+    // continue;
+    // }
+    // ArrayList<ObjectFragment> anotherList = getAnotherList(currentCodeList,
+    // index, c.getVlabel());
+    // ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
+    // for (ObjectFragment M2 : anotherList) {
+    // for (byte i = ELABELNUM; i >= 0; i--) {
+    // childrenOfM1.add(getChildrenOfM1(M2, i));
+    // }
+    // }
+    // anotherList = null;
+    // stack.push(new Frame(childrenOfM1, new ArrayList<>(currentPastFragments),
+    // 0));
+    // }
+    // currentPastFragments.remove(currentPastFragments.size() - 1);
+    // }
+    // }
+    // }
+    // }
 
     private static CompletableFuture<Void> enumarateWithAcGMSingleAndParallel(ExecutorService executorService,
             ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
@@ -608,6 +659,8 @@ class Main {
         long currentMemoryUsed = runtime.totalMemory() - runtime.freeMemory();
 
         maxMemoryUsed = Math.max(maxMemoryUsed, currentMemoryUsed);
+        // System.out.println("max:" + maxMemoryUsed / 1024 / 1024);
+        // System.out.println("now:" + currentMemoryUsed / 1024 / 1024);
     }
 
     private static void mergeFiles(String[] inputFiles, String outputFile) {

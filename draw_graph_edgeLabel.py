@@ -69,10 +69,19 @@ while True:
         # G.nodes[id] = node
         G.add_node(id)
         if id==0:
-            labels = {id: [id,node]}
+            labels = {id: id}
         else:
-            labels[id] = id,node
+            labels[id] = id
         id+=1
+    # # 頂点をグラフに追加
+    # for node in nodes:
+    #     # G.nodes[id] = node
+    #     G.add_node(id)
+    #     if id==0:
+    #         labels = {id: [id,node]}
+    #     else:
+    #         labels[id] = id,node
+    #     id+=1
 
         # countlabels.add(node)
         if max_label < node:
