@@ -6,11 +6,11 @@ import codetree.common.Pair;
 import codetree.core.*;
 
 public class AcgmCode
-        implements GraphCode,ObjectType {
+        implements GraphCode, ObjectType {
 
     @Override
-    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel,boolean isConnected) {
-        return (new AcgmCodeFragment(vLabel, eLabel,isConnected));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected) {
+        return (new AcgmCodeFragment(vLabel, eLabel, isConnected));
     }
 
     @Override
@@ -73,8 +73,9 @@ public class AcgmCode
 
         return code;
     }
+
     @Override
-    public boolean computeCanonicalCode(Graph g,List<ObjectFragment> target) {
+    public boolean computeCanonicalCode(Graph g, List<ObjectFragment> target) {
         final int n = g.order();
         ArrayList<ObjectFragment> code = new ArrayList<>(n);
 
@@ -82,7 +83,7 @@ public class AcgmCode
         ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
 
         final byte max = g.getMaxVertexLabel();
-        if(max!=target.get(0).getVlabel()){
+        if (max != target.get(0).getVlabel()) {
             return false;
         }
         code.add(new AcgmCodeFragment(max, 0));
@@ -113,14 +114,14 @@ public class AcgmCode
                         maxFrag = frag;
                         infoList2.clear();
                         infoList2.add(new AcgmSearchInfo(info, g, v));
-                    } else if (cmpres == 0 ) {
+                    } else if (cmpres == 0) {
                         infoList2.add(new AcgmSearchInfo(info, g, v));
                     }
                 }
             }
 
             code.add(maxFrag);
-            if(!code.get(depth).equals(target.get(depth))){
+            if (!maxFrag.equals(target.get(depth))) {
                 return false;
             }
 
@@ -215,17 +216,14 @@ public class AcgmCode
         return frags;
     }
 
+    public static long isCanonicalTime = 0;
+
     @Override
-    public boolean isCanonical(Graph g ,List<ObjectFragment> c) {
-        // Graph g = generateGraphAddElabel(c, id);
-        return computeCanonicalCode(g,c);
-        // List<CodeFragment> gCanonivalCode = computeCanonicalCode(g,c);
-        // for(int i=0;i<gCanonivalCode.size();i++){
-        //     if(!gCanonivalCode.get(i).equals(c.get(i))){
-        //         return false;
-        //     }
-        // }
-        // return true;
+    public boolean isCanonical(Graph g, List<ObjectFragment> c) {
+        long start = System.nanoTime();
+        boolean isCanonical = computeCanonicalCode(g, c);
+        isCanonicalTime += System.nanoTime() - start;
+        return isCanonical;
     }
 
     @Override
@@ -268,7 +266,6 @@ public class AcgmCode
                     edges[index + 1][index] = 1;
                 }
             } else {
-
                 for (int i = 0; i < eLabels.length; i++) {
                     if (eLabels[i] == 1) {
                         edges[index][i] = 1;

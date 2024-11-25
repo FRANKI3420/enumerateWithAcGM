@@ -5,3 +5,6 @@ launch.json
 *.gfu
 進捗.ipynb
 *.csv
+*.class
+*ps1
+*.tsv

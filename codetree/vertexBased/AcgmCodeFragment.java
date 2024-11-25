@@ -14,7 +14,7 @@ class AcgmCodeFragment
     AcgmCodeFragment(byte vLabel, int length) {
         this.vLabel = vLabel;
         eLabels = new byte[length];
-        isConnected =true;
+        isConnected = true;
     }
 
     AcgmCodeFragment(byte vLabel, byte[] eLabels) {
@@ -22,16 +22,8 @@ class AcgmCodeFragment
         this.eLabels = eLabels.clone();
         isConnected = false;
     }
-    // AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean pastIsConnected) {
-    //     this.vLabel = vLabel;
-    //     this.eLabels = eLabels.clone();
-    //     if(!pastIsConnected){
-    //         this.isConnected = false;
-    //     }else{
-    //         this.isConnected = judgeIsConnected(eLabels);
-    //     }
-    // }
-    AcgmCodeFragment(byte vLabel, byte[] eLabels,boolean isConnected) {
+
+    AcgmCodeFragment(byte vLabel, byte[] eLabels, boolean isConnected) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
@@ -89,6 +81,7 @@ class AcgmCodeFragment
     public byte[] getelabel() {
         return this.eLabels;
     }
+
     @Override
     public boolean getIsConnected() {
         return this.isConnected;

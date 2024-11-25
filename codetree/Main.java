@@ -7,6 +7,8 @@ import codetree.core.*;
 import codetree.vertexBased.AcgmCode;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,8 +24,6 @@ class Main {
     private static byte maxVlabel;
     private static long maxMemoryUsed = 0;
     private static List<CompletableFuture<Void>> singleTasks = new ArrayList<>();
-    private static int singleThreadCount = 0;
-    private static int multiThreadCount = 0;
     private static final int AVAILABLE_PROCESSORS = Runtime.getRuntime().availableProcessors();
     private static BufferedWriter bw;
     private static BufferedWriter bw2;
@@ -43,15 +43,16 @@ class Main {
     private static final boolean RUN_PYTHON = false;
     private static byte SIGMA = 1;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 3;
-    private static double PARAM = 10;// シングルスレッドとマルチスレッドの割合を決める(調整難)
+    private static int FINISH = 9;
+    // シングルスレッドとマルチスレッドの割合を決める(調整難)
+    private static double PARAM = 5000;// 8:300 9:5000
 
     public static void main(String[] args) {
         final boolean PARALLEL = false;
         final boolean SINGLE_And_PARALLEL = false;
-        final boolean USING_STACK = false;
+        final boolean USING_STACK = true;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
-
+        runJsp();
         try {
             if (!PARALLEL) {
                 startEnumarate(USING_STACK);
@@ -66,6 +67,8 @@ class Main {
         double maxMemoryUsedInMB = maxMemoryUsed
                 / (1024.0 * 1024.0);
         System.out.println(String.format("最大メモリ使用量: %.1f MB", maxMemoryUsedInMB));
+        double isCanonicalTime = (double) AcgmCode.isCanonicalTime / (1000 * 1000 * 1000);
+        System.out.println(String.format("正準判定時間: %.1f s", isCanonicalTime));
 
         if (RUN_PYTHON) {
             RunPythonFromJava();
@@ -121,20 +124,12 @@ class Main {
                 id = 0;
                 id2 = 0;
                 mergeFiles(new String[] { "outputSingle.gfu", "outputParallel.gfu" }, "output.gfu");
-                int totalRuns = singleThreadCount + multiThreadCount;
-                double singleThreadPercentage = (double) singleThreadCount / totalRuns * 100;
-                double multiThreadPercentage = (double) multiThreadCount / totalRuns * 100;
-                System.out.println("シングルスレッドの実行回数: " + singleThreadCount);
-                System.out.println("マルチスレッドの実行回数: " + multiThreadCount);
-                System.out.println(String.format("シングルスレッドの割合: %.2f%%",
-                        singleThreadPercentage));
-                System.out.println(String.format("マルチスレッドの割合: %.2f%%",
-                        multiThreadPercentage));
             } else {
                 System.out.println("マルチスレッド");
                 if (USING_STACK) {
                     System.out.println("スタック");
                     enumerateWithAcGMParallelUsingStack(executorService, codeList, new ArrayList<>()).join();
+                    // enumerateWithAcGMUsingForkJoin(codeList, new ArrayList<>());
                 } else {
                     System.out.println("再帰");
                     enumarateWithAcGMParallel(executorService, codeList, new ArrayList<>()).join();
@@ -169,7 +164,6 @@ class Main {
 
     private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments)
             throws IOException {
-        singleThreadCount++;
         for (int index = 0, len = codeList.size(); index < len; index++) {
             UpdatamaxMemoryUsed();
             final ObjectFragment c = codeList.get(index);
@@ -186,14 +180,7 @@ class Main {
                         codeList.set(index, null);
                         continue;
                     }
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, c.getVlabel());
-                    ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                    for (ObjectFragment M2 : anotherList) {
-                        for (byte i = ELABELNUM; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                        }
-                    }
-                    anotherList = null;
+                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
                     codeList.set(index, null);
                     enumarateWithAcGM(childrenOfM1, pastFragments);
                 }
@@ -213,9 +200,8 @@ class Main {
         while (!stack.isEmpty()) {
             ArrayList<ObjectFragment> currentList = stack.pop();
             ArrayList<ObjectFragment> currentPastFragments = pastFragmentsStack.pop();
-            // UpdatamaxMemoryUsed();
+            UpdatamaxMemoryUsed();
             for (int index = 0, len = currentList.size(); index < len; index++) {
-                UpdatamaxMemoryUsed();
                 final ObjectFragment c = currentList.get(index);
                 if (c.getIsConnected()) {
                     currentPastFragments.add(c);
@@ -228,128 +214,15 @@ class Main {
                             currentList.set(index, null);
                             continue;
                         }
-
-                        ArrayList<ObjectFragment> anotherList = getAnotherList(currentList, index, c.getVlabel());
-                        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                        for (ObjectFragment M2 : anotherList) {
-                            for (byte i = ELABELNUM; i >= 0; i--) {
-                                childrenOfM1.add(getChildrenOfM1(M2, i));
-                            }
-                        }
-
+                        ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentList, index, c.getVlabel());
                         stack.push(childrenOfM1);
-                        pastFragmentsStack.push(new ArrayList<>(currentPastFragments));
-
-                        anotherList = null;
                         currentList.set(index, null);
+                        pastFragmentsStack.push(new ArrayList<>(currentPastFragments));
                     }
                     currentPastFragments.remove(currentPastFragments.size() - 1);
                 }
             }
         }
-    }
-
-    // private static void enumerateWithAcGMUsingStack(ArrayList<ObjectFragment>
-    // codeList,
-    // ArrayList<ObjectFragment> pastFragments)
-    // throws IOException {
-
-    // Stack<Frame> stack = new Stack<>();
-    // stack.push(new Frame(codeList, pastFragments, 0));
-
-    // while (!stack.isEmpty()) {
-    // singleThreadCount++;
-    // UpdatamaxMemoryUsed();
-    // Frame frame = stack.pop();
-    // ArrayList<ObjectFragment> currentCodeList = frame.codeList;
-    // ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
-    // int startIndex = frame.index;
-
-    // for (int index = startIndex, len = currentCodeList.size(); index < len;
-    // index++) {
-    // final ObjectFragment c = currentCodeList.get(index);
-    // if (c != null && c.getIsConnected()) {
-    // currentPastFragments.add(c);
-    // Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
-    // if (objectType.isCanonical(g, currentPastFragments)) {
-    // g.writeGraph2GfuAddeLabel(bw);
-    // g = null;
-    // id2++;
-    // if (currentPastFragments.size() == FINISH) {
-    // currentPastFragments.remove(currentPastFragments.size() - 1);
-    // currentCodeList.set(index, null);
-    // continue;
-    // }
-    // ArrayList<ObjectFragment> anotherList = getAnotherList(currentCodeList,
-    // index, c.getVlabel());
-    // ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-    // for (ObjectFragment M2 : anotherList) {
-    // for (byte i = ELABELNUM; i >= 0; i--) {
-    // childrenOfM1.add(getChildrenOfM1(M2, i));
-    // }
-    // }
-    // anotherList = null;
-    // stack.push(new Frame(childrenOfM1, new ArrayList<>(currentPastFragments),
-    // 0));
-    // }
-    // currentPastFragments.remove(currentPastFragments.size() - 1);
-    // }
-    // }
-    // }
-    // }
-
-    private static CompletableFuture<Void> enumarateWithAcGMSingleAndParallel(ExecutorService executorService,
-            ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
-        List<CompletableFuture<Void>> tasks = new ArrayList<>();// 非同期タスクの管理
-        UpdatamaxMemoryUsed();
-        for (int index = 0, len = codeList.size(); index < len; index++) {
-            final ObjectFragment c = codeList.get(index);
-            if (c.getIsConnected()) {
-                ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
-                nowFragments.add(c);
-                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
-                if (objectType.isCanonical(g, nowFragments)) {
-                    synchronized (bw2) {
-                        g.writeGraph2GfuAddeLabel(bw2);
-                        id++;
-                        g = null;
-                    }
-                    if (nowFragments.size() == FINISH) {
-                        codeList.set(index, null);
-                        continue;
-                    }
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, c.getVlabel());
-                    ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                    for (ObjectFragment M2 : anotherList) {
-                        for (byte i = ELABELNUM; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                        }
-                    }
-                    anotherList = null;
-                    codeList.set(index, null);
-                    ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-
-                    if (shouldRunInParallel(threadPoolExecutor)) {
-                        // System.out.println("parallel");
-                        tasks.add(CompletableFuture.supplyAsync(() -> {
-                            return enumarateWithAcGMSingleAndParallel(executorService, childrenOfM1, nowFragments);
-                        }, executorService).thenComposeAsync(future -> future));
-                    } else {
-                        // System.out.println("single");
-                        singleTasks.add(CompletableFuture.runAsync(() -> {
-                            try {
-                                // 非同期で再帰処理を開始
-                                enumarateWithAcGM(childrenOfM1, nowFragments);
-                            } catch (IOException e) {
-                                throw new CompletionException(e);
-                            }
-                        }, executorService));
-                    }
-
-                }
-            }
-        }
-        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
     private static CompletableFuture<Void> enumarateWithAcGMParallel(ExecutorService executorService,
@@ -372,16 +245,8 @@ class Main {
                         codeList.set(index, null);
                         continue;
                     }
-                    ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, c.getVlabel());
-                    ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                    for (ObjectFragment M2 : anotherList) {
-                        for (byte i = ELABELNUM; i >= 0; i--) {
-                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                        }
-                    }
-                    anotherList = null;
+                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
                     codeList.set(index, null);
-
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
@@ -392,88 +257,21 @@ class Main {
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
-    public static CompletableFuture<Void> enumerateWithAcGMSingleAndParallelUsingStack(ExecutorService executorService,
-            ArrayList<ObjectFragment> codeList,
-            ArrayList<ObjectFragment> pastFragments) {
-        ConcurrentLinkedDeque<Frame> stack = new ConcurrentLinkedDeque<>();
-        stack.push(new Frame(codeList, pastFragments, 0)); // 初期フレームをスタックにプッシュ
+    private static class Frame {
+        ArrayList<ObjectFragment> codeList;
+        ArrayList<ObjectFragment> pastFragments;
 
-        return processStackSingleAndParallel(executorService, stack);
-    }
-
-    private static CompletableFuture<Void> processStackSingleAndParallel(ExecutorService executorService,
-            ConcurrentLinkedDeque<Frame> stack) {
-        List<CompletableFuture<Void>> tasks = new ArrayList<>();
-
-        // スタックが空でないか、または実行中のタスクが存在する限りループ
-        while (!stack.isEmpty() || activeTasks.get() > 0) {
-            multiThreadCount++;
-            Frame frame = stack.poll(); // スタックからフレームを取得
-            if (frame != null) {
-                activeTasks.incrementAndGet(); // 新しいタスクを開始
-                UpdatamaxMemoryUsed();
-
-                // フレームの処理を非同期に実行
-                tasks.add(CompletableFuture.runAsync(() -> {
-                    try {
-                        ArrayList<ObjectFragment> currentCodeList = frame.codeList;
-                        ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
-                        int startIndex = frame.index;
-
-                        for (int index = startIndex, len = currentCodeList.size(); index < len; index++) {
-                            final ObjectFragment c = currentCodeList.get(index);
-                            if (c != null && c.getIsConnected()) {
-                                ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
-                                nowFragments.add(c);
-                                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
-
-                                if (objectType.isCanonical(g, nowFragments)) {
-                                    synchronized (bw2) {
-                                        g.writeGraph2GfuAddeLabel(bw2);
-                                        id++;
-                                    }
-
-                                    if (nowFragments.size() == FINISH) {
-                                        currentCodeList.set(index, null);
-                                        continue;
-                                    }
-
-                                    ArrayList<ObjectFragment> anotherList = getAnotherList(currentCodeList, index,
-                                            c.getVlabel());
-                                    ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                                    for (ObjectFragment M2 : anotherList) {
-                                        for (byte i = ELABELNUM; i >= 0; i--) {
-                                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                                        }
-                                    }
-
-                                    ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
-                                    if (shouldRunInParallel(threadPoolExecutor)) {
-                                        stack.push(new Frame(childrenOfM1, new ArrayList<>(nowFragments), 0));
-                                    } else {
-                                        enumerateWithAcGMUsingStack(childrenOfM1, nowFragments);
-                                    }
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        activeTasks.decrementAndGet(); // タスクが完了したらカウントを減らす
-                    }
-                }, executorService));
-            }
+        Frame(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
+            this.codeList = new ArrayList<>(codeList);
+            this.pastFragments = new ArrayList<>(pastFragments);
         }
-
-        // すべてのタスクが完了するまで待機
-        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
     public static CompletableFuture<Void> enumerateWithAcGMParallelUsingStack(ExecutorService executorService,
             ArrayList<ObjectFragment> codeList,
             ArrayList<ObjectFragment> pastFragments) {
         ConcurrentLinkedDeque<Frame> stack = new ConcurrentLinkedDeque<>();
-        stack.push(new Frame(codeList, pastFragments, 0));
+        stack.push(new Frame(codeList, pastFragments));
 
         return processStack(executorService, stack);
     }
@@ -494,9 +292,8 @@ class Main {
                     try {
                         ArrayList<ObjectFragment> currentCodeList = frame.codeList;
                         ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
-                        int startIndex = frame.index;
 
-                        for (int index = startIndex, len = currentCodeList.size(); index < len; index++) {
+                        for (int index = 0, len = currentCodeList.size(); index < len; index++) {
                             final ObjectFragment c = currentCodeList.get(index);
                             if (c != null && c.getIsConnected()) {
                                 ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
@@ -514,16 +311,11 @@ class Main {
                                         continue;
                                     }
 
-                                    ArrayList<ObjectFragment> anotherList = getAnotherList(currentCodeList, index,
+                                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(
+                                            currentCodeList, index,
                                             c.getVlabel());
-                                    ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-                                    for (ObjectFragment M2 : anotherList) {
-                                        for (byte i = ELABELNUM; i >= 0; i--) {
-                                            childrenOfM1.add(getChildrenOfM1(M2, i));
-                                        }
-                                    }
 
-                                    stack.push(new Frame(childrenOfM1, new ArrayList<>(nowFragments), 0));
+                                    stack.push(new Frame(childrenOfM1, nowFragments));
                                 }
                             }
                         }
@@ -540,38 +332,175 @@ class Main {
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
-    private static class Frame {
-        ArrayList<ObjectFragment> codeList;
-        ArrayList<ObjectFragment> pastFragments;
-        int index;
+    public static void enumerateWithAcGMUsingForkJoin(ArrayList<ObjectFragment> codeList,
+            ArrayList<ObjectFragment> pastFragments) throws IOException {
+        ForkJoinPool pool = new ForkJoinPool(); // ForkJoinプールを作成
+        pool.invoke(new EnumerationTask(codeList, pastFragments));
+    }
 
-        Frame(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments, int index) {
-            this.codeList = new ArrayList<>(codeList);
-            this.pastFragments = new ArrayList<>(pastFragments);
-            this.index = index;
+    static class EnumerationTask extends RecursiveTask<Void> {
+        private final ArrayList<ObjectFragment> currentList;
+        private final ArrayList<ObjectFragment> currentPastFragments;
+
+        EnumerationTask(ArrayList<ObjectFragment> currentList, ArrayList<ObjectFragment> currentPastFragments) {
+            this.currentList = currentList;
+            this.currentPastFragments = currentPastFragments;
+        }
+
+        @Override
+        protected Void compute() {
+            ArrayList<EnumerationTask> subTasks = new ArrayList<>();
+
+            for (int index = 0, len = currentList.size(); index < len; index++) {
+                final ObjectFragment c = currentList.get(index);
+                if (c == null || !c.getIsConnected())
+                    continue;
+
+                ArrayList<ObjectFragment> newPastFragments = new ArrayList<>(currentPastFragments);
+                newPastFragments.add(c);
+
+                Graph g = objectType.generateGraphAddElabel(newPastFragments, 0);
+                if (objectType.isCanonical(g, newPastFragments)) {
+                    synchronized (bw2) {
+                        g.writeGraph2GfuAddeLabel(bw2);
+                        id++;
+                        g = null;
+                    }
+
+                    if (newPastFragments.size() == FINISH) {
+                        continue;
+                    }
+
+                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentList, index, c.getVlabel());
+                    EnumerationTask subTask = new EnumerationTask(childrenOfM1, newPastFragments);
+                    subTasks.add(subTask);
+                }
+            }
+            UpdatamaxMemoryUsed();
+
+            // サブタスクを並列実行
+            invokeAll(subTasks);
+            return null;
         }
     }
 
-    private static boolean shouldRunInParallel(ThreadPoolExecutor executor) {
-        // 現在のアクティブタスク数を取得
-        int activeTasks = executor.getActiveCount();
-        // キューの待機タスク数を取得
-        int queuedTasks = executor.getQueue().size();
+    public static CompletableFuture<Void> enumerateWithAcGMSingleAndParallelUsingStack(ExecutorService executorService,
+            ArrayList<ObjectFragment> codeList,
+            ArrayList<ObjectFragment> pastFragments) {
+        ConcurrentLinkedDeque<Frame> stack = new ConcurrentLinkedDeque<>();
+        stack.push(new Frame(codeList, pastFragments)); // 初期フレームをスタックにプッシュ
 
-        // System.out.println("現在のアクティブタスク数: " + activeTasks + ", キュー内のタスク数: " +
-        // queuedTasks);
-        // System.out.println("\n現在の実行中タスク数: " + threadPoolExecutor.getActiveCount());
-        // System.out.println("現在キューに待機しているタスク数: " +
-        // threadPoolExecutor.getQueue().size());
-        // System.out.println("現在のスレッドプール内のすべてのスレッドの数: " +
-        // threadPoolExecutor.getPoolSize());
-
-        // アクティブタスク数やキュー内タスク数が閾値を超える場合は並列実行を避ける
-        // System.out.println(activeTasks + queuedTasks);
-        return (activeTasks + queuedTasks) < AVAILABLE_PROCESSORS * PARAM;
+        return processStackSingleAndParallel(executorService, stack);
     }
 
-    private static ObjectFragment getChildrenOfM1(final ObjectFragment M2, final byte eLabel) {
+    private static CompletableFuture<Void> processStackSingleAndParallel(ExecutorService executorService,
+            ConcurrentLinkedDeque<Frame> stack) {
+        List<CompletableFuture<Void>> tasks = new ArrayList<>();
+
+        // スタックが空でないか、または実行中のタスクが存在する限りループ
+        while (!stack.isEmpty() || activeTasks.get() > 0) {
+            Frame frame = stack.poll(); // スタックからフレームを取得
+            if (frame != null) {
+                activeTasks.incrementAndGet(); // 新しいタスクを開始
+                UpdatamaxMemoryUsed();
+
+                // フレームの処理を非同期に実行
+                tasks.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        ArrayList<ObjectFragment> currentCodeList = frame.codeList;
+                        ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
+
+                        for (int index = 0, len = currentCodeList.size(); index < len; index++) {
+                            final ObjectFragment c = currentCodeList.get(index);
+                            if (c != null && c.getIsConnected()) {
+                                ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
+                                nowFragments.add(c);
+                                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+
+                                if (objectType.isCanonical(g, nowFragments)) {
+                                    synchronized (bw2) {
+                                        g.writeGraph2GfuAddeLabel(bw2);
+                                        id++;
+                                    }
+
+                                    if (nowFragments.size() == FINISH) {
+                                        currentCodeList.set(index, null);
+                                        continue;
+                                    }
+
+                                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentCodeList, index,
+                                            c.getVlabel());
+
+                                    ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+                                    if (shouldRunInParallel(threadPoolExecutor)) {
+                                        stack.push(new Frame(childrenOfM1, nowFragments));
+                                    } else {
+                                        enumerateWithAcGMUsingStack(childrenOfM1, nowFragments);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        activeTasks.decrementAndGet(); // タスクが完了したらカウントを減らす
+                    }
+                }, executorService));
+            }
+        }
+
+        // すべてのタスクが完了するまで待機
+        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
+    }
+
+    private static CompletableFuture<Void> enumarateWithAcGMSingleAndParallel(ExecutorService executorService,
+            ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
+        List<CompletableFuture<Void>> tasks = new ArrayList<>();// 非同期タスクの管理
+        UpdatamaxMemoryUsed();
+        for (int index = 0, len = codeList.size(); index < len; index++) {
+            final ObjectFragment c = codeList.get(index);
+            if (c.getIsConnected()) {
+                ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
+                nowFragments.add(c);
+                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+                if (objectType.isCanonical(g, nowFragments)) {
+                    synchronized (bw2) {
+                        g.writeGraph2GfuAddeLabel(bw2);
+                        id++;
+                        g = null;
+                    }
+                    if (nowFragments.size() == FINISH) {
+                        codeList.set(index, null);
+                        continue;
+                    }
+                    ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
+
+                    codeList.set(index, null);
+                    ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+
+                    if (shouldRunInParallel(threadPoolExecutor)) {
+                        // System.out.println("parallel");
+                        tasks.add(CompletableFuture.supplyAsync(() -> {
+                            return enumarateWithAcGMSingleAndParallel(executorService, childrenOfM1, nowFragments);
+                        }, executorService).thenComposeAsync(future -> future));
+                    } else {
+                        // System.out.println("single");
+                        singleTasks.add(CompletableFuture.runAsync(() -> {
+                            try {
+                                // 非同期で再帰処理を開始
+                                enumarateWithAcGM(childrenOfM1, nowFragments);
+                            } catch (IOException e) {
+                                throw new CompletionException(e);
+                            }
+                        }, executorService));
+                    }
+                }
+            }
+        }
+        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
+    }
+
+    private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel) {
         final int depth = M2.getelabel().length + 1;
         byte[] eLabels = new byte[M2.getelabel().length + 1];
 
@@ -587,6 +516,22 @@ class Main {
         eLabels[depth - 1] = eLabel;
 
         return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected);
+    }
+
+    private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> codeList, int index,
+            byte vlabel) {
+
+        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
+
+        ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
+        for (ObjectFragment M2 : anotherList) {
+            for (byte i = ELABELNUM; i >= 0; i--) {
+                childrenOfM1.add(getChildrenOfM1Fragment(M2, i));
+            }
+        }
+
+        return childrenOfM1;
+
     }
 
     private static ArrayList<ObjectFragment> getAnotherList(
@@ -610,6 +555,26 @@ class Main {
             anotherList.add(codeList.get(i));
         }
         return anotherList;
+    }
+
+    private static boolean shouldRunInParallel(ThreadPoolExecutor executor) {
+        // 現在のアクティブタスク数を取得
+        int activeTasks = executor.getActiveCount();
+        // キューの待機タスク数を取得
+        int queuedTasks = executor.getQueue().size();
+
+        // System.out.println("現在のアクティブタスク数: " + activeTasks + ", キュー内のタスク数: " +
+        // queuedTasks);
+        // System.out.println("\n現在の実行中タスク数: " + executor.getActiveCount());
+        // System.out.println("現在キューに待機しているタスク数: " +
+        // executor.getQueue().size());
+        // System.out.println("現在のスレッドプール内のすべてのスレッドの数: " +
+        // executor.getPoolSize());
+
+        // アクティブタスク数やキュー内タスク数が閾値を超える場合は並列実行を避ける
+        // System.out.println(activeTasks + queuedTasks);
+        // return (activeTasks + queuedTasks) < AVAILABLE_PROCESSORS * PARAM;
+        return queuedTasks < PARAM;
     }
 
     @SuppressWarnings("unused")
@@ -696,6 +661,39 @@ class Main {
         bw.close();
         bw2.close();
         bw3.close();
+    }
+
+    private static void runJsp() {
+        try {
+            // jps コマンドを実行
+            ProcessBuilder processBuilder = new ProcessBuilder("jps");
+            Process process = processBuilder.start();
+
+            // コマンドの出力を読み取る
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+
+            String pid = "";
+            // 出力を1行ずつ読み込む
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+                // "Main" が含まれている行を探す
+                if (line.contains("Main")) {
+                    // "Main" の前の数字を抽出
+                    pid = line.split(" ")[0]; // PIDは最初の項目にあります
+                    System.out.println("Main の PID: " + pid);
+                    break; // 最初に見つけた PID を表示して終了
+                }
+            }
+
+            String command = String.format(" jstat -gcutil -t %s 1000 > jstat.tsv", pid);
+            System.out.println(command);
+            // processBuilder = new ProcessBuilder(command);
+            // process = processBuilder.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     static void RunPythonFromJava() {
