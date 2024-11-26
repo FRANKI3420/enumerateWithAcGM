@@ -35,7 +35,7 @@ class Main {
             bw2 = Files.newBufferedWriter(
                     Paths.get("outputParallel.gfu"));
             bw3 = Files.newBufferedWriter(
-                    Paths.get("outputAcGMcode.txt"));
+                    Paths.get("memory.csv"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -50,9 +50,8 @@ class Main {
     public static void main(String[] args) {
         final boolean PARALLEL = false;
         final boolean SINGLE_And_PARALLEL = false;
-        final boolean USING_STACK = true;
+        final boolean USING_STACK = false;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
-        runJsp();
         try {
             if (!PARALLEL) {
                 startEnumarate(USING_STACK);
@@ -113,7 +112,9 @@ class Main {
 
                 if (USING_STACK) {
                     System.out.println("スタック");
-                    enumerateWithAcGMSingleAndParallelUsingStack(executorService, codeList, new ArrayList<>()).join();
+                    // enumerateWithAcGMSingleAndParallelUsingStack(executorService, codeList, new
+                    // ArrayList<>()).join();
+                    enumerateWithAcGMUsingForkJoin(codeList, new ArrayList<>());
                 } else {
                     System.out.println("再帰");
                     enumarateWithAcGMSingleAndParallel(executorService, codeList, new ArrayList<>()).join();
@@ -164,8 +165,8 @@ class Main {
 
     private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments)
             throws IOException {
+        UpdatamaxMemoryUsed(codeList);
         for (int index = 0, len = codeList.size(); index < len; index++) {
-            UpdatamaxMemoryUsed();
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
                 pastFragments.add(c);
@@ -200,7 +201,7 @@ class Main {
         while (!stack.isEmpty()) {
             ArrayList<ObjectFragment> currentList = stack.pop();
             ArrayList<ObjectFragment> currentPastFragments = pastFragmentsStack.pop();
-            UpdatamaxMemoryUsed();
+            UpdatamaxMemoryUsed(codeList);
             for (int index = 0, len = currentList.size(); index < len; index++) {
                 final ObjectFragment c = currentList.get(index);
                 if (c.getIsConnected()) {
@@ -228,7 +229,7 @@ class Main {
     private static CompletableFuture<Void> enumarateWithAcGMParallel(ExecutorService executorService,
             ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
         List<CompletableFuture<Void>> tasks = new ArrayList<>();// 非同期タスクの管理
-        UpdatamaxMemoryUsed();
+        UpdatamaxMemoryUsed(codeList);
         for (int index = 0, len = codeList.size(); index < len; index++) {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
@@ -285,13 +286,13 @@ class Main {
             Frame frame = stack.poll();
             if (frame != null) {
                 activeTasks.incrementAndGet(); // 新しいタスクを開始
-                UpdatamaxMemoryUsed();
 
                 // フレームの処理を非同期に実行
                 tasks.add(CompletableFuture.runAsync(() -> {
                     try {
                         ArrayList<ObjectFragment> currentCodeList = frame.codeList;
                         ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
+                        UpdatamaxMemoryUsed(currentCodeList);
 
                         for (int index = 0, len = currentCodeList.size(); index < len; index++) {
                             final ObjectFragment c = currentCodeList.get(index);
@@ -350,6 +351,7 @@ class Main {
         @Override
         protected Void compute() {
             ArrayList<EnumerationTask> subTasks = new ArrayList<>();
+            UpdatamaxMemoryUsed(currentList);
 
             for (int index = 0, len = currentList.size(); index < len; index++) {
                 final ObjectFragment c = currentList.get(index);
@@ -376,8 +378,6 @@ class Main {
                     subTasks.add(subTask);
                 }
             }
-            UpdatamaxMemoryUsed();
-
             // サブタスクを並列実行
             invokeAll(subTasks);
             return null;
@@ -402,13 +402,12 @@ class Main {
             Frame frame = stack.poll(); // スタックからフレームを取得
             if (frame != null) {
                 activeTasks.incrementAndGet(); // 新しいタスクを開始
-                UpdatamaxMemoryUsed();
-
                 // フレームの処理を非同期に実行
                 tasks.add(CompletableFuture.runAsync(() -> {
                     try {
                         ArrayList<ObjectFragment> currentCodeList = frame.codeList;
                         ArrayList<ObjectFragment> currentPastFragments = frame.pastFragments;
+                        UpdatamaxMemoryUsed(currentCodeList);
 
                         for (int index = 0, len = currentCodeList.size(); index < len; index++) {
                             final ObjectFragment c = currentCodeList.get(index);
@@ -456,7 +455,7 @@ class Main {
     private static CompletableFuture<Void> enumarateWithAcGMSingleAndParallel(ExecutorService executorService,
             ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments) {
         List<CompletableFuture<Void>> tasks = new ArrayList<>();// 非同期タスクの管理
-        UpdatamaxMemoryUsed();
+        UpdatamaxMemoryUsed(codeList);
         for (int index = 0, len = codeList.size(); index < len; index++) {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
@@ -574,6 +573,7 @@ class Main {
         // アクティブタスク数やキュー内タスク数が閾値を超える場合は並列実行を避ける
         // System.out.println(activeTasks + queuedTasks);
         // return (activeTasks + queuedTasks) < AVAILABLE_PROCESSORS * PARAM;
+
         return queuedTasks < PARAM;
     }
 
@@ -617,11 +617,25 @@ class Main {
         System.out.println("Available Memory: " + (double) availableMemory / 1024 / 1024 / 1024 + " GB");
     }
 
-    @SuppressWarnings("unused")
-    private static void UpdatamaxMemoryUsed() {
+    static int memory_count = 0;
+
+    @SuppressWarnings("unused") // kokokoko
+    private static void UpdatamaxMemoryUsed(ArrayList<ObjectFragment> codeList) {
         Runtime runtime = Runtime.getRuntime();
 
         long currentMemoryUsed = runtime.totalMemory() - runtime.freeMemory();
+
+        synchronized (bw3) {
+            memory_count++;
+
+            if (memory_count % 1 == 0) {
+                try {
+                    bw3.write(String.format("%.2f\n", (double) currentMemoryUsed / 1024 / 1024));
+                } catch (Exception e) {
+                    System.err.println(e);
+                }
+            }
+        }
 
         maxMemoryUsed = Math.max(maxMemoryUsed, currentMemoryUsed);
         // System.out.println("max:" + maxMemoryUsed / 1024 / 1024);
