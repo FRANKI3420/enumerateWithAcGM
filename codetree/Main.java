@@ -41,16 +41,16 @@ class Main {
         }
     }
     private static final boolean RUN_PYTHON = false;
-    private static byte SIGMA = 1;
+    private static byte SIGMA = 2;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 9;
+    private static int FINISH = 3;
     // シングルスレッドとマルチスレッドの割合を決める(調整難)
     private static double PARAM = 5000;// 8:300 9:5000
 
     public static void main(String[] args) {
         final boolean PARALLEL = false;
         final boolean SINGLE_And_PARALLEL = false;
-        final boolean USING_STACK = false;
+        final boolean USING_STACK = true;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
         try {
             if (!PARALLEL) {
@@ -208,6 +208,7 @@ class Main {
                     currentPastFragments.add(c);
                     Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
                     if (objectType.isCanonical(g, currentPastFragments)) {
+                        print(currentPastFragments, true);
                         g.writeGraph2GfuAddeLabel(bw);
                         id2++;
                         if (currentPastFragments.size() == FINISH) {
@@ -625,17 +626,17 @@ class Main {
 
         long currentMemoryUsed = runtime.totalMemory() - runtime.freeMemory();
 
-        synchronized (bw3) {
-            memory_count++;
+        // synchronized (bw3) {
+        // memory_count++;
 
-            if (memory_count % 1 == 0) {
-                try {
-                    bw3.write(String.format("%.2f\n", (double) currentMemoryUsed / 1024 / 1024));
-                } catch (Exception e) {
-                    System.err.println(e);
-                }
-            }
-        }
+        // if (memory_count % 1 == 0) {
+        // try {
+        // bw3.write(String.format("%.2f\n", (double) currentMemoryUsed / 1024 / 1024));
+        // } catch (Exception e) {
+        // System.err.println(e);
+        // }
+        // }
+        // }
 
         maxMemoryUsed = Math.max(maxMemoryUsed, currentMemoryUsed);
         // System.out.println("max:" + maxMemoryUsed / 1024 / 1024);

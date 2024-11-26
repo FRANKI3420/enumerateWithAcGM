@@ -77,7 +77,6 @@ public class AcgmCode
     @Override
     public boolean computeCanonicalCode(Graph g, List<ObjectFragment> target) {
         final int n = g.order();
-        ArrayList<ObjectFragment> code = new ArrayList<>(n);
 
         ArrayList<AcgmSearchInfo> infoList1 = new ArrayList<>();
         ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
@@ -86,7 +85,6 @@ public class AcgmCode
         if (max != target.get(0).getVlabel()) {
             return false;
         }
-        code.add(new AcgmCodeFragment(max, 0));
 
         final List<Integer> maxVertexList = g.getVertexList(max);
         for (int v0 : maxVertexList) {
@@ -98,10 +96,7 @@ public class AcgmCode
 
             byte[] eLabels = new byte[depth];
             for (AcgmSearchInfo info : infoList1) {
-                for (int v = 0; v < n; ++v) {
-                    if (!info.open.get(v)) {
-                        continue;
-                    }
+                for (int v = info.open.nextSetBit(0); v >= 0 && v < n; v = info.open.nextSetBit(v + 1)) {
 
                     for (int i = 0; i < depth; ++i) {
                         final int u = info.vertexIDs[i];
@@ -120,7 +115,6 @@ public class AcgmCode
                 }
             }
 
-            code.add(maxFrag);
             if (!maxFrag.equals(target.get(depth))) {
                 return false;
             }
