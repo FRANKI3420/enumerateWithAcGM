@@ -19,8 +19,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 class Main {
     private static ObjectType objectType = new AcgmCode();
     private static final AtomicInteger activeTasks = new AtomicInteger(0); // タスクのカウント
-    private static int id = 0;
-    private static int id2 = 0;
+    private static int id_parallel = 0;
+    private static int id_single = 0;
     private static byte maxVlabel;
     private static long maxMemoryUsed = 0;
     private static List<CompletableFuture<Void>> singleTasks = new ArrayList<>();
@@ -41,16 +41,16 @@ class Main {
         }
     }
     private static final boolean RUN_PYTHON = false;
-    private static byte SIGMA = 2;
-    private static byte ELABELNUM = 1;
-    private static int FINISH = 3;
     // シングルスレッドとマルチスレッドの割合を決める(調整難)
-    private static double PARAM = 5000;// 8:300 9:5000
+    private static int PARAM = 5000;// 8:300 9:5000
+    private static byte SIGMA = 5;
+    private static byte ELABELNUM = 1;
+    private static int FINISH = 7;
+    private static final boolean PARALLEL = false;
+    private static final boolean SINGLE_And_PARALLEL = false;
+    private static final boolean USING_STACK = false;
 
     public static void main(String[] args) {
-        final boolean PARALLEL = false;
-        final boolean SINGLE_And_PARALLEL = false;
-        final boolean USING_STACK = true;
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
         try {
             if (!PARALLEL) {
@@ -92,7 +92,7 @@ class Main {
             System.out.println(
                     "実行時間: " + String.format("%.2f", (double) (System.nanoTime() - start) / 1000 / 1000 / 1000) + "s");
 
-            System.out.println("ans num: " + id2);
+            System.out.println("ans num: " + id_single);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -112,9 +112,7 @@ class Main {
 
                 if (USING_STACK) {
                     System.out.println("スタック");
-                    // enumerateWithAcGMSingleAndParallelUsingStack(executorService, codeList, new
-                    // ArrayList<>()).join();
-                    enumerateWithAcGMUsingForkJoin(codeList, new ArrayList<>());
+                    enumerateWithAcGMSingleAndParallelUsingStack(executorService, codeList, new ArrayList<>()).join();
                 } else {
                     System.out.println("再帰");
                     enumarateWithAcGMSingleAndParallel(executorService, codeList, new ArrayList<>()).join();
@@ -122,15 +120,16 @@ class Main {
                 CompletableFuture.allOf(singleTasks.toArray(new CompletableFuture[0])).join();
                 bw.flush();
                 bw2.flush();
-                id = 0;
-                id2 = 0;
+                id_parallel = 0;
+                id_single = 0;
                 mergeFiles(new String[] { "outputSingle.gfu", "outputParallel.gfu" }, "output.gfu");
             } else {
                 System.out.println("マルチスレッド");
                 if (USING_STACK) {
                     System.out.println("スタック");
-                    enumerateWithAcGMParallelUsingStack(executorService, codeList, new ArrayList<>()).join();
-                    // enumerateWithAcGMUsingForkJoin(codeList, new ArrayList<>());
+                    // enumerateWithAcGMParallelUsingStack(executorService, codeList, new
+                    // ArrayList<>()).join();
+                    enumerateWithAcGMUsingForkJoin(codeList, new ArrayList<>());
                 } else {
                     System.out.println("再帰");
                     enumarateWithAcGMParallel(executorService, codeList, new ArrayList<>()).join();
@@ -153,12 +152,14 @@ class Main {
             System.out.println(
                     "実行時間：" + String.format("%.1f", (double) (start) / 1000 /
                             1000 / 1000) + "s");
-            System.out.println("ans num: " + (id + id2));
+            System.out.println("ans num: " + (id_parallel + id_single));
             if (SINGLE_And_PARALLEL) {
-                System.out.println("ans num(single thread): " + (id2));
-                System.out.println("ans num(multi thread): " + (id));
-                System.out.println("シングルスレッドの発見解割合: " + String.format("%.2f%%", (double) id2 / (id + id2) * 100));
-                System.out.println("マルチスレッドスレッドの発見解割合: " + String.format("%.2f%%", (double) id / (id + id2) * 100));
+                System.out.println("ans num(single thread): " + (id_single));
+                System.out.println("ans num(multi thread): " + (id_parallel));
+                System.out.println("シングルスレッドの発見解割合: "
+                        + String.format("%.2f%%", (double) id_single / (id_parallel + id_single) * 100));
+                System.out.println("マルチスレッドスレッドの発見解割合: "
+                        + String.format("%.2f%%", (double) id_parallel / (id_parallel + id_single) * 100));
             }
         }
     }
@@ -170,19 +171,25 @@ class Main {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
                 pastFragments.add(c);
-                // print(pastFragments, true);
                 Graph g = objectType.generateGraphAddElabel(pastFragments, 0);
                 if (objectType.isCanonical(g, pastFragments)) {
-                    g.writeGraph2GfuAddeLabel(bw);
-                    g = null;
-                    id2++;
+                    // print(pastFragments, true);
+
+                    if (SIGMA - 1 == pastFragments.get(0).getVlabel()) {
+                        generateAllDiffVlabelGraph(g, pastFragments);
+                    } else {
+                        return;
+                    }
+
+                    writeGraphtoFileSingle(g);
+
                     if (pastFragments.size() == FINISH) {
                         pastFragments.remove(pastFragments.size() - 1);
-                        codeList.set(index, null);
+                        // codeList.set(index, null);
                         continue;
                     }
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
-                    codeList.set(index, null);
+                    // codeList.set(index, null);
                     enumarateWithAcGM(childrenOfM1, pastFragments);
                 }
                 pastFragments.remove(pastFragments.size() - 1);
@@ -208,9 +215,14 @@ class Main {
                     currentPastFragments.add(c);
                     Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
                     if (objectType.isCanonical(g, currentPastFragments)) {
-                        print(currentPastFragments, true);
-                        g.writeGraph2GfuAddeLabel(bw);
-                        id2++;
+                        // print(currentPastFragments, true);
+                        if (SIGMA - 1 == currentPastFragments.get(0).getVlabel()) {
+                            generateAllDiffVlabelGraph(g, currentPastFragments);
+                        } else {
+                            continue;
+                        }
+                        writeGraphtoFileSingle(g);
+
                         if (currentPastFragments.size() == FINISH) {
                             currentPastFragments.remove(currentPastFragments.size() - 1);
                             currentList.set(index, null);
@@ -218,7 +230,6 @@ class Main {
                         }
                         ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentList, index, c.getVlabel());
                         stack.push(childrenOfM1);
-                        currentList.set(index, null);
                         pastFragmentsStack.push(new ArrayList<>(currentPastFragments));
                     }
                     currentPastFragments.remove(currentPastFragments.size() - 1);
@@ -238,17 +249,20 @@ class Main {
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
                 if (objectType.isCanonical(g, nowFragments)) {
-                    synchronized (bw2) {
-                        g.writeGraph2GfuAddeLabel(bw2);
-                        id++;
-                        g = null;
+                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                        generateAllDiffVlabelGraph(g, nowFragments);
+                    } else {
+                        break;
                     }
+
+                    writeGraphtoFile(g);
+
                     if (nowFragments.size() == FINISH) {
                         codeList.set(index, null);
                         continue;
                     }
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
-                    codeList.set(index, null);
+
                     tasks.add(CompletableFuture.supplyAsync(() -> {
                         return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
@@ -303,10 +317,13 @@ class Main {
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
                                 if (objectType.isCanonical(g, nowFragments)) {
-                                    synchronized (bw2) {
-                                        g.writeGraph2GfuAddeLabel(bw2);
-                                        id++;
+                                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                        generateAllDiffVlabelGraph(g, nowFragments);
+                                    } else {
+                                        continue;
                                     }
+
+                                    writeGraphtoFile(g);
 
                                     if (nowFragments.size() == FINISH) {
                                         currentCodeList.set(index, null);
@@ -364,11 +381,13 @@ class Main {
 
                 Graph g = objectType.generateGraphAddElabel(newPastFragments, 0);
                 if (objectType.isCanonical(g, newPastFragments)) {
-                    synchronized (bw2) {
-                        g.writeGraph2GfuAddeLabel(bw2);
-                        id++;
-                        g = null;
+                    if (SIGMA - 1 == newPastFragments.get(0).getVlabel()) {
+                        generateAllDiffVlabelGraph(g, newPastFragments);
+                    } else {
+                        break;
                     }
+
+                    writeGraphtoFile(g);
 
                     if (newPastFragments.size() == FINISH) {
                         continue;
@@ -418,10 +437,13 @@ class Main {
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
                                 if (objectType.isCanonical(g, nowFragments)) {
-                                    synchronized (bw2) {
-                                        g.writeGraph2GfuAddeLabel(bw2);
-                                        id++;
+                                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                        generateAllDiffVlabelGraph(g, nowFragments);
+                                    } else {
+                                        break;
                                     }
+
+                                    writeGraphtoFile(g);
 
                                     if (nowFragments.size() == FINISH) {
                                         currentCodeList.set(index, null);
@@ -464,18 +486,19 @@ class Main {
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
                 if (objectType.isCanonical(g, nowFragments)) {
-                    synchronized (bw2) {
-                        g.writeGraph2GfuAddeLabel(bw2);
-                        id++;
-                        g = null;
+                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                        generateAllDiffVlabelGraph(g, nowFragments);
+                    } else {
+                        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
                     }
+                    writeGraphtoFile(g);
+
                     if (nowFragments.size() == FINISH) {
                         codeList.set(index, null);
                         continue;
                     }
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
 
-                    codeList.set(index, null);
                     ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
 
                     if (shouldRunInParallel(threadPoolExecutor)) {
@@ -500,6 +523,104 @@ class Main {
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
+    private static void generateAllDiffVlabelGraph(Graph g, ArrayList<ObjectFragment> pastFragments) {
+        int index = 1;
+        byte[] vertices = new byte[g.order()];
+        ArrayList<String> edgeLine = getEdgeLine(g.order(), g.size(), g.edges);
+        while (true) {
+            for (int i = 0; i < g.order(); i++) {
+                ObjectFragment c = pastFragments.get(i);
+                byte cvlabel = (byte) (c.getVlabel() - index);
+                if (cvlabel < 0) {
+                    // System.out.println();
+                    return;
+                }
+                vertices[i] = cvlabel;
+                // System.out.print(cvlabel + ":" + Arrays.toString(c.getelabel()).toString() +
+                // " ");
+            }
+            // System.out.println();
+            index++;
+            if (PARALLEL) {
+                synchronized (bw2) {
+                    writeGraph2GfuAddeLabel(vertices, edgeLine, bw2);
+                    // new Graph(vertices, g.edges).writeGraph2GfuAddeLabel(bw2);
+                    id_parallel++;
+                }
+            } else {
+                writeGraph2GfuAddeLabel(vertices, edgeLine, bw);
+                id_single++;
+            }
+        }
+    }
+
+    private static ArrayList<String> getEdgeLine(int order, int size, byte[][] edges) {
+        ArrayList<String> edgeLine = new ArrayList<>();
+        edgeLine.add(size + "\n");
+        for (int i = 0; i < order; i++) {
+            for (int j = i; j < order; j++) {
+                if (edges[i][j] > 0) {
+                    edgeLine.add(i + " " + j + " " + edges[i][j] + "\n");
+                }
+            }
+        }
+        return edgeLine;
+    }
+
+    private static void writeGraph2GfuAddeLabel(byte[] vertices, ArrayList<String> edgeLine, BufferedWriter writer) {
+        try {
+            writer.write("#" + 0 + "\n");
+            writer.write(vertices.length + "\n");
+            for (byte v : vertices) {
+                writer.write(v + "\n");
+            }
+            for (String s : edgeLine) {
+                writer.write(s);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> codeList, int index,
+            byte vlabel) {
+
+        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
+
+        ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
+        for (ObjectFragment M2 : anotherList) {
+            for (byte i = ELABELNUM; i >= 0; i--) {
+                childrenOfM1.add(getChildrenOfM1Fragment(M2, i));
+            }
+        }
+
+        return childrenOfM1;
+    }
+
+    private static ArrayList<ObjectFragment> getAnotherList(
+            final List<ObjectFragment> codeList, final int index, final byte vLabel) {
+
+        final int len = codeList.size();
+        ArrayList<ObjectFragment> anotherList = new ArrayList<>();
+
+        if (SIGMA > 1 && maxVlabel != vLabel) {
+            // 兄の中で非連結なフラグメントのみ追加
+            for (int i = 0; i < index; i++) {
+                ObjectFragment c = codeList.get(i);
+                // if (c == null || c.getIsConnected())
+                if (c == null || (c.getelabel().length > 0 && c.getIsConnected()))
+                    continue;
+                anotherList.add(c);
+            }
+        }
+
+        // 自身を含めて弟のフラグメントを追加
+        for (int i = index; i < len; i++) {
+            anotherList.add(codeList.get(i));
+        }
+        return anotherList;
+    }
+
     private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel) {
         final int depth = M2.getelabel().length + 1;
         byte[] eLabels = new byte[M2.getelabel().length + 1];
@@ -518,64 +639,21 @@ class Main {
         return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected);
     }
 
-    private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> codeList, int index,
-            byte vlabel) {
-
-        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-
-        ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
-        for (ObjectFragment M2 : anotherList) {
-            for (byte i = ELABELNUM; i >= 0; i--) {
-                childrenOfM1.add(getChildrenOfM1Fragment(M2, i));
-            }
-        }
-
-        return childrenOfM1;
-
-    }
-
-    private static ArrayList<ObjectFragment> getAnotherList(
-            final List<ObjectFragment> codeList, final int index, final byte vLabel) {
-
-        final int len = codeList.size();
-        ArrayList<ObjectFragment> anotherList = new ArrayList<>();
-
-        if (SIGMA > 1 && maxVlabel != vLabel) {
-            // 兄の中で非連結なフラグメントのみ追加
-            for (int i = 0; i < index; i++) {
-                ObjectFragment c = codeList.get(i);
-                if (c == null || c.getIsConnected())
-                    continue;
-                anotherList.add(c);
-            }
-        }
-
-        // 自身を含めて弟のフラグメントを追加
-        for (int i = index; i < len; i++) {
-            anotherList.add(codeList.get(i));
-        }
-        return anotherList;
-    }
-
     private static boolean shouldRunInParallel(ThreadPoolExecutor executor) {
-        // 現在のアクティブタスク数を取得
-        int activeTasks = executor.getActiveCount();
-        // キューの待機タスク数を取得
         int queuedTasks = executor.getQueue().size();
-
-        // System.out.println("現在のアクティブタスク数: " + activeTasks + ", キュー内のタスク数: " +
-        // queuedTasks);
-        // System.out.println("\n現在の実行中タスク数: " + executor.getActiveCount());
-        // System.out.println("現在キューに待機しているタスク数: " +
-        // executor.getQueue().size());
-        // System.out.println("現在のスレッドプール内のすべてのスレッドの数: " +
-        // executor.getPoolSize());
-
-        // アクティブタスク数やキュー内タスク数が閾値を超える場合は並列実行を避ける
-        // System.out.println(activeTasks + queuedTasks);
-        // return (activeTasks + queuedTasks) < AVAILABLE_PROCESSORS * PARAM;
-
         return queuedTasks < PARAM;
+    }
+
+    private static void writeGraphtoFileSingle(Graph g) {
+        g.writeGraph2GfuAddeLabel(bw);
+        id_single++;
+    }
+
+    private static void writeGraphtoFile(Graph g) {
+        synchronized (bw2) {
+            g.writeGraph2GfuAddeLabel(bw2);
+            id_parallel++;
+        }
     }
 
     @SuppressWarnings("unused")
@@ -652,9 +730,9 @@ class Main {
                     while ((line = reader.readLine()) != null) {
                         if (line.startsWith("#")) {
                             if (index == 0) {
-                                id2++;
+                                id_single++;
                             } else {
-                                id++;
+                                id_parallel++;
                             }
                         }
                         writer.write(line);
@@ -811,7 +889,7 @@ class Main {
 // String line;
 // while ((line = reader.readLine()) != null) {
 // if (line.startsWith("#")) {
-// id++;
+// id_parallel++;
 // }
 // writer.write(line);
 // writer.newLine(); // 改行
@@ -865,5 +943,59 @@ class Main {
 // System.out.println("Files deleted successfully.");
 // } catch (IOException e) {
 // System.err.println("Error deleting files: " + e.getMessage());
+// }
+// }
+
+// allSameVLabelAndGenerate(pastFragments);
+// if (SIGMA - 1 == c.getVlabel() && pastFragments.get(pastFragments.size() -
+// 1).getAllSameVlabel()) {
+// generateDiffVlabelGraph(g, pastFragments);
+// } else if (SIGMA - 1 != c.getVlabel()
+// && pastFragments.get(pastFragments.size() - 1).getAllSameVlabel()) {
+// return;
+// }
+// private static void generateDiffVlabelGraph(Graph g,
+// ArrayList<ObjectFragment> pastFragments) {
+// byte vlabel = (byte) (g.vertices[0] - 1);
+// ArrayList<ObjectFragment> fragments = new ArrayList<>(pastFragments);
+// while (vlabel > -1) {
+// byte[] vertices = new byte[g.order()];
+// for (int i = 0; i < g.order(); i++) {
+// vertices[i] = vlabel;
+// }
+// for (ObjectFragment c : fragments) {
+// System.out.print(vlabel + ":" + Arrays.toString(c.getelabel()).toString() +
+// "");
+// }
+// System.out.println();
+// new Graph(0, vertices, g.edges).writeGraph2GfuAddeLabel(bw2);
+// id_single++;
+// vlabel--;
+// }
+// }
+
+// private static void allSameVLabelAndGenerate(ArrayList<ObjectFragment>
+// pastFragments) {
+// int depth = pastFragments.size();
+
+// if (depth == 1 || (pastFragments.get(depth - 2).getAllSameVlabel()
+// && pastFragments.get(depth - 2).getVlabel() == pastFragments
+// .get(depth - 1).getVlabel())) {
+// // try {
+// // System.out.println("same");
+// // print(pastFragments, true);
+// // } catch (IOException e) {
+// // // TODO Auto-generated catch block
+// // e.printStackTrace();
+// // }
+// } else {
+// pastFragments.get(depth - 1).setAllSameVlabel(false);
+// // try {
+// // System.out.println("non-same");
+// // print(pastFragments, true);
+// // } catch (IOException e) {
+// // // TODO Auto-generated catch block
+// // e.printStackTrace();
+// // }
 // }
 // }

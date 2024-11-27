@@ -27,6 +27,7 @@ class AcgmCodeFragment
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
+
     }
 
     int isMoreCanonicalThan(AcgmCodeFragment other) {

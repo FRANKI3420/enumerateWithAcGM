@@ -25,6 +25,12 @@ public class Graph {
         adjList = makeAdjList();
     }
 
+    public Graph(byte[] vertices, byte[][] edges) {
+        this.id = 0;
+        this.vertices = vertices;
+        this.edges = edges;
+    }
+
     private int[][] makeAdjList() {
         final int n = order();
         int[][] adjList = new int[n][];
@@ -198,13 +204,13 @@ public class Graph {
 
             bw2.write(size() + "\n");
             for (int i = 0; i < order(); i++) {
-                for (int j : adjList[i]) {
-                    if (i <= j) {
+                for (int j = i; j < order(); j++) {
+                    if (edges[i][j] > 0) {
                         bw2.write(i + " " + j + " " + edges[i][j] + "\n");
                     }
                 }
             }
-         } catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

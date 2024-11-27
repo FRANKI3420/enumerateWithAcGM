@@ -19,6 +19,10 @@ public class AcgmCode
         for (int i = 0; i < labels_length; i++) {
             codeList.add(new AcgmCodeFragment((byte) (labels_length - 1 - i), 0));
         }
+        // for (int i = labels_length - 1; i >= 0; i--) {
+        // codeList.add(new AcgmCodeFragment((byte) i, 0));
+        // }
+
         return codeList;
     }
 

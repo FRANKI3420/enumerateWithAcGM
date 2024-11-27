@@ -25,7 +25,7 @@ public class VertexLabel {
     // "F",
     // "Cl", "S", "N", "O", "C", "H" });
 
-    public static int size(){
+    public static int size() {
         return atoms.size();
     }
 
