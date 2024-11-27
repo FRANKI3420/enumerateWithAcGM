@@ -49,6 +49,7 @@ class Main {
     private static final boolean PARALLEL = false;
     private static final boolean SINGLE_And_PARALLEL = false;
     private static final boolean USING_STACK = false;
+    private static final boolean LABEL_COPY = true;
 
     public static void main(String[] args) {
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
@@ -175,7 +176,7 @@ class Main {
                 if (objectType.isCanonical(g, pastFragments)) {
                     // print(pastFragments, true);
 
-                    if (SIGMA - 1 == pastFragments.get(0).getVlabel()) {
+                    if (LABEL_COPY && SIGMA - 1 == pastFragments.get(0).getVlabel()) {
                         generateAllDiffVlabelGraph(g, pastFragments);
                     } else {
                         return;
@@ -216,7 +217,7 @@ class Main {
                     Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
                     if (objectType.isCanonical(g, currentPastFragments)) {
                         // print(currentPastFragments, true);
-                        if (SIGMA - 1 == currentPastFragments.get(0).getVlabel()) {
+                        if (LABEL_COPY && SIGMA - 1 == currentPastFragments.get(0).getVlabel()) {
                             generateAllDiffVlabelGraph(g, currentPastFragments);
                         } else {
                             continue;
@@ -249,7 +250,7 @@ class Main {
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
                 if (objectType.isCanonical(g, nowFragments)) {
-                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
                         generateAllDiffVlabelGraph(g, nowFragments);
                     } else {
                         break;
@@ -317,7 +318,7 @@ class Main {
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
                                 if (objectType.isCanonical(g, nowFragments)) {
-                                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
                                         generateAllDiffVlabelGraph(g, nowFragments);
                                     } else {
                                         continue;
@@ -381,7 +382,7 @@ class Main {
 
                 Graph g = objectType.generateGraphAddElabel(newPastFragments, 0);
                 if (objectType.isCanonical(g, newPastFragments)) {
-                    if (SIGMA - 1 == newPastFragments.get(0).getVlabel()) {
+                    if (LABEL_COPY && SIGMA - 1 == newPastFragments.get(0).getVlabel()) {
                         generateAllDiffVlabelGraph(g, newPastFragments);
                     } else {
                         break;
@@ -437,7 +438,7 @@ class Main {
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
                                 if (objectType.isCanonical(g, nowFragments)) {
-                                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
                                         generateAllDiffVlabelGraph(g, nowFragments);
                                     } else {
                                         break;
@@ -486,7 +487,7 @@ class Main {
                 nowFragments.add(c);
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
                 if (objectType.isCanonical(g, nowFragments)) {
-                    if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
                         generateAllDiffVlabelGraph(g, nowFragments);
                     } else {
                         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
@@ -947,7 +948,8 @@ class Main {
 // }
 
 // allSameVLabelAndGenerate(pastFragments);
-// if (SIGMA - 1 == c.getVlabel() && pastFragments.get(pastFragments.size() -
+// if (LABEL_COPY && SIGMA - 1 == c.getVlabel() &&
+// pastFragments.get(pastFragments.size() -
 // 1).getAllSameVlabel()) {
 // generateDiffVlabelGraph(g, pastFragments);
 // } else if (SIGMA - 1 != c.getVlabel()
