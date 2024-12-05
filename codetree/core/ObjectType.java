@@ -3,9 +3,12 @@ package codetree.core;
 import java.util.*;
 
 public interface ObjectType {
-    abstract ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected);
+    abstract ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected, boolean isMaxLabel,
+            boolean isAllSameVlabel);
 
     abstract boolean isCanonical(Graph g, List<ObjectFragment> c);
+
+    abstract ArrayList<ObjectFragment> computeCanonicalCode(Graph g);
 
     abstract boolean computeCanonicalCode(Graph g, List<ObjectFragment> c);
 

@@ -43,16 +43,17 @@ class Main {
     private static final boolean RUN_PYTHON = false;
     // シングルスレッドとマルチスレッドの割合を決める(調整難)
     private static int PARAM = 5000;// 8:300 9:5000
-    private static byte SIGMA = 5;
+    private static byte SIGMA = 1;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 7;
-    private static final boolean PARALLEL = false;
+    private static int FINISH = 10;
+    private static final boolean PARALLEL = true;
     private static final boolean SINGLE_And_PARALLEL = false;
     private static final boolean USING_STACK = false;
     private static final boolean LABEL_COPY = true;
 
     public static void main(String[] args) {
         System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
+        System.out.println("LABELCOPY " + LABEL_COPY);
         try {
             if (!PARALLEL) {
                 startEnumarate(USING_STACK);
@@ -69,6 +70,7 @@ class Main {
         System.out.println(String.format("最大メモリ使用量: %.1f MB", maxMemoryUsedInMB));
         double isCanonicalTime = (double) AcgmCode.isCanonicalTime / (1000 * 1000 * 1000);
         System.out.println(String.format("正準判定時間: %.1f s", isCanonicalTime));
+        System.out.println("正準判定回数 " + AcgmCode.canonical_times);
 
         if (RUN_PYTHON) {
             RunPythonFromJava();
@@ -165,37 +167,46 @@ class Main {
         }
     }
 
-    private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> pastFragments)
+    private static void enumarateWithAcGM(ArrayList<ObjectFragment> codeList, ArrayList<ObjectFragment> nowFragments)
             throws IOException {
         UpdatamaxMemoryUsed(codeList);
         for (int index = 0, len = codeList.size(); index < len; index++) {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
-                pastFragments.add(c);
-                Graph g = objectType.generateGraphAddElabel(pastFragments, 0);
-                if (objectType.isCanonical(g, pastFragments)) {
-                    // print(pastFragments, true);
+                nowFragments.add(c);
+                // print(nowFragments, true);
 
-                    if (LABEL_COPY && SIGMA - 1 == pastFragments.get(0).getVlabel()) {
-                        generateAllDiffVlabelGraph(g, pastFragments);
-                    } else {
-                        return;
+                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+
+                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel()) ||
+                        objectType.isCanonical(g, nowFragments)) {
+                    // if (objectType.isCanonical(g, nowFragments)) {
+
+                    if (LABEL_COPY) {
+                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                            // generateAllDiffVlabelGraph(g, nowFragments);
+                            generateAllDiffVlabelGraph2(nowFragments);
+                        } else {
+                            return;
+                        }
                     }
 
-                    writeGraphtoFileSingle(g);
+                    writeCodetoFileSingle(nowFragments);
+                    // writeGraphtoFileSingle(g);
 
-                    if (pastFragments.size() == FINISH) {
-                        pastFragments.remove(pastFragments.size() - 1);
+                    if (nowFragments.size() == FINISH) {
+                        nowFragments.remove(nowFragments.size() - 1);
                         // codeList.set(index, null);
                         continue;
                     }
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
                     // codeList.set(index, null);
-                    enumarateWithAcGM(childrenOfM1, pastFragments);
+                    enumarateWithAcGM(childrenOfM1, nowFragments);
                 }
-                pastFragments.remove(pastFragments.size() - 1);
+                nowFragments.remove(nowFragments.size() - 1);
             }
         }
+
     }
 
     private static void enumerateWithAcGMUsingStack(ArrayList<ObjectFragment> codeList,
@@ -208,32 +219,38 @@ class Main {
 
         while (!stack.isEmpty()) {
             ArrayList<ObjectFragment> currentList = stack.pop();
-            ArrayList<ObjectFragment> currentPastFragments = pastFragmentsStack.pop();
+            ArrayList<ObjectFragment> nowFragments = pastFragmentsStack.pop();
             UpdatamaxMemoryUsed(codeList);
             for (int index = 0, len = currentList.size(); index < len; index++) {
                 final ObjectFragment c = currentList.get(index);
                 if (c.getIsConnected()) {
-                    currentPastFragments.add(c);
-                    Graph g = objectType.generateGraphAddElabel(currentPastFragments, 0);
-                    if (objectType.isCanonical(g, currentPastFragments)) {
-                        // print(currentPastFragments, true);
-                        if (LABEL_COPY && SIGMA - 1 == currentPastFragments.get(0).getVlabel()) {
-                            generateAllDiffVlabelGraph(g, currentPastFragments);
-                        } else {
-                            continue;
+                    nowFragments.add(c);
+
+                    Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+
+                    if ((c.getIsAllSameVlabel() && c.getIsMaxLabel()) || objectType.isCanonical(g, nowFragments)) {
+                        // print(nowFragments, true);
+                        if (LABEL_COPY) {
+                            if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                // generateAllDiffVlabelGraph(g, nowFragments);
+                                generateAllDiffVlabelGraph2(nowFragments);
+
+                            } else {
+                                continue;
+                            }
                         }
                         writeGraphtoFileSingle(g);
 
-                        if (currentPastFragments.size() == FINISH) {
-                            currentPastFragments.remove(currentPastFragments.size() - 1);
+                        if (nowFragments.size() == FINISH) {
+                            nowFragments.remove(nowFragments.size() - 1);
                             currentList.set(index, null);
                             continue;
                         }
                         ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentList, index, c.getVlabel());
                         stack.push(childrenOfM1);
-                        pastFragmentsStack.push(new ArrayList<>(currentPastFragments));
+                        pastFragmentsStack.push(new ArrayList<>(nowFragments));
                     }
-                    currentPastFragments.remove(currentPastFragments.size() - 1);
+                    nowFragments.remove(nowFragments.size() - 1);
                 }
             }
         }
@@ -248,12 +265,30 @@ class Main {
             if (c.getIsConnected()) {
                 ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
+                // boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+                // nowFragments.size() > 1
+                // && c.getIsMaxLabel() == false
+                // && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+                // if (isNotCanonical) {
+                // nowFragments.remove(nowFragments.size() - 1);
+                // continue;
+                // }
+
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
-                if (objectType.isCanonical(g, nowFragments)) {
-                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
-                        generateAllDiffVlabelGraph(g, nowFragments);
-                    } else {
-                        break;
+
+                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel()) || objectType.isCanonical(g, nowFragments)) {
+                    if (LABEL_COPY) {
+                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                            // generateAllDiffVlabelGraph(g, nowFragments);
+                            try {
+                                generateAllDiffVlabelGraph2(nowFragments);
+                            } catch (IOException e) {
+                                // TODO Auto-generated catch block
+                                e.printStackTrace();
+                            }
+                        } else {
+                            break;
+                        }
                     }
 
                     writeGraphtoFile(g);
@@ -315,13 +350,27 @@ class Main {
                             if (c != null && c.getIsConnected()) {
                                 ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
                                 nowFragments.add(c);
+                                // boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+                                // nowFragments.size() > 1
+                                // && c.getIsMaxLabel() == false
+                                // && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+                                // if (isNotCanonical) {
+                                // nowFragments.remove(nowFragments.size() - 1);
+                                // continue;
+                                // }
+
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
-                                if (objectType.isCanonical(g, nowFragments)) {
-                                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
-                                        generateAllDiffVlabelGraph(g, nowFragments);
-                                    } else {
-                                        continue;
+                                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel())
+                                        || objectType.isCanonical(g, nowFragments)) {
+                                    if (LABEL_COPY) {
+                                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                            // generateAllDiffVlabelGraph(g, nowFragments);
+                                            generateAllDiffVlabelGraph2(nowFragments);
+
+                                        } else {
+                                            continue;
+                                        }
                                     }
 
                                     writeGraphtoFile(g);
@@ -377,25 +426,41 @@ class Main {
                 if (c == null || !c.getIsConnected())
                     continue;
 
-                ArrayList<ObjectFragment> newPastFragments = new ArrayList<>(currentPastFragments);
-                newPastFragments.add(c);
+                ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
+                nowFragments.add(c);
+                // boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+                // nowFragments.size() > 1
+                // && c.getIsMaxLabel() == false
+                // && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+                // if (isNotCanonical) {
+                // nowFragments.remove(nowFragments.size() - 1);
+                // continue;
+                // }
 
-                Graph g = objectType.generateGraphAddElabel(newPastFragments, 0);
-                if (objectType.isCanonical(g, newPastFragments)) {
-                    if (LABEL_COPY && SIGMA - 1 == newPastFragments.get(0).getVlabel()) {
-                        generateAllDiffVlabelGraph(g, newPastFragments);
-                    } else {
-                        break;
+                Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+
+                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel()) || objectType.isCanonical(g, nowFragments)) {
+                    if (LABEL_COPY) {
+                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                            // generateAllDiffVlabelGraph(g, nowFragments);
+                            try {
+                                generateAllDiffVlabelGraph2(nowFragments);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            break;
+                        }
                     }
 
                     writeGraphtoFile(g);
 
-                    if (newPastFragments.size() == FINISH) {
+                    if (nowFragments.size() == FINISH) {
                         continue;
                     }
 
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(currentList, index, c.getVlabel());
-                    EnumerationTask subTask = new EnumerationTask(childrenOfM1, newPastFragments);
+                    EnumerationTask subTask = new EnumerationTask(childrenOfM1, nowFragments);
                     subTasks.add(subTask);
                 }
             }
@@ -435,13 +500,27 @@ class Main {
                             if (c != null && c.getIsConnected()) {
                                 ArrayList<ObjectFragment> nowFragments = new ArrayList<>(currentPastFragments);
                                 nowFragments.add(c);
+                                // boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+                                // nowFragments.size() > 1
+                                // && c.getIsMaxLabel() == false
+                                // && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+                                // if (isNotCanonical) {
+                                // nowFragments.remove(nowFragments.size() - 1);
+                                // continue;
+                                // }
+
                                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
-                                if (objectType.isCanonical(g, nowFragments)) {
-                                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
-                                        generateAllDiffVlabelGraph(g, nowFragments);
-                                    } else {
-                                        break;
+                                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel())
+                                        || objectType.isCanonical(g, nowFragments)) {
+                                    if (LABEL_COPY) {
+                                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                                            // generateAllDiffVlabelGraph(g, nowFragments);
+                                            generateAllDiffVlabelGraph2(nowFragments);
+
+                                        } else {
+                                            break;
+                                        }
                                     }
 
                                     writeGraphtoFile(g);
@@ -485,12 +564,29 @@ class Main {
             if (c.getIsConnected()) {
                 ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
+                // boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+                // nowFragments.size() > 1
+                // && c.getIsMaxLabel() == false
+                // && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+                // if (isNotCanonical) {
+                // nowFragments.remove(nowFragments.size() - 1);
+                // continue;
+                // }
+
                 Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
-                if (objectType.isCanonical(g, nowFragments)) {
-                    if (LABEL_COPY && SIGMA - 1 == nowFragments.get(0).getVlabel()) {
-                        generateAllDiffVlabelGraph(g, nowFragments);
-                    } else {
-                        return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
+
+                if ((c.getIsAllSameVlabel() && c.getIsMaxLabel()) || objectType.isCanonical(g, nowFragments)) {
+                    if (LABEL_COPY) {
+                        if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
+                            // generateAllDiffVlabelGraph(g, nowFragments);
+                            try {
+                                generateAllDiffVlabelGraph2(nowFragments);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
+                        }
                     }
                     writeGraphtoFile(g);
 
@@ -524,34 +620,46 @@ class Main {
         return CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0]));
     }
 
-    private static void generateAllDiffVlabelGraph(Graph g, ArrayList<ObjectFragment> pastFragments) {
+    private static void generateAllDiffVlabelGraph(Graph g,
+            ArrayList<ObjectFragment> pastFragments) {
         int index = 1;
-        byte[] vertices = new byte[g.order()];
         ArrayList<String> edgeLine = getEdgeLine(g.order(), g.size(), g.edges);
+        List<byte[]> veList = new ArrayList<>();
+        boolean loop = true;
         while (true) {
+            byte[] vertices = new byte[g.order()];
             for (int i = 0; i < g.order(); i++) {
                 ObjectFragment c = pastFragments.get(i);
                 byte cvlabel = (byte) (c.getVlabel() - index);
                 if (cvlabel < 0) {
                     // System.out.println();
-                    return;
+                    loop = false;
+                    break;
                 }
                 vertices[i] = cvlabel;
-                // System.out.print(cvlabel + ":" + Arrays.toString(c.getelabel()).toString() +
-                // " ");
             }
-            // System.out.println();
+            if (!loop)
+                break;
+            veList.add(vertices);
             index++;
-            if (PARALLEL) {
-                synchronized (bw2) {
-                    writeGraph2GfuAddeLabel(vertices, edgeLine, bw2);
-                    // new Graph(vertices, g.edges).writeGraph2GfuAddeLabel(bw2);
-                    id_parallel++;
-                }
-            } else {
-                writeGraph2GfuAddeLabel(vertices, edgeLine, bw);
-                id_single++;
+        }
+        if (PARALLEL) {
+            synchronized (bw2) {
+                writeGraph2GfuAddeLabel(veList, edgeLine, bw2);
+                // new Graph(vertices, g.edges).writeGraph2GfuAddeLabel(bw2);
+                id_parallel += veList.size();
             }
+        } else {
+            writeGraph2GfuAddeLabel(veList, edgeLine, bw);
+            id_single += veList.size();
+        }
+    }
+
+    private static void generateAllDiffVlabelGraph2(ArrayList<ObjectFragment> nowFragments) throws IOException {
+        if (PARALLEL) {
+            writeVlabelChangeCodetoFile_parallel(nowFragments, bw2);
+        } else {
+            writeVlabelChangeCodetoFile_single(nowFragments, bw);
         }
     }
 
@@ -568,15 +676,58 @@ class Main {
         return edgeLine;
     }
 
-    private static void writeGraph2GfuAddeLabel(byte[] vertices, ArrayList<String> edgeLine, BufferedWriter writer) {
-        try {
-            writer.write("#" + 0 + "\n");
-            writer.write(vertices.length + "\n");
-            for (byte v : vertices) {
-                writer.write(v + "\n");
+    private static void writeVlabelChangeCodetoFile_single(List<ObjectFragment> code, BufferedWriter out)
+            throws IOException {
+        int index = 1;
+        // print(code, true);
+        while (true) {
+            String line = "";
+            for (ObjectFragment c : code) {
+                byte v = (byte) (c.getVlabel() - index);
+                if (v < 0) {
+                    return;
+                }
+                line += (c.getVlabel() - index) + ":" + Arrays.toString(c.getelabel()).toString() + " ";
             }
-            for (String s : edgeLine) {
-                writer.write(s);
+            // System.out.println(line);
+            id_single++;
+            out.write(line + "\n");
+            index++;
+        }
+    }
+
+    private static void writeVlabelChangeCodetoFile_parallel(List<ObjectFragment> code, BufferedWriter out)
+            throws IOException {
+        int index = 1;
+        while (true) {
+            String line = "";
+            for (ObjectFragment c : code) {
+                byte v = (byte) (c.getVlabel() - index);
+                if (v < 0) {
+                    return;
+                }
+                line += (c.getVlabel() - index) + ":" + Arrays.toString(c.getelabel()).toString() + " ";
+            }
+            synchronized (bw2) {
+                out.write(line + "\n");
+                id_parallel++;
+            }
+            index++;
+        }
+    }
+
+    private static void writeGraph2GfuAddeLabel(List<byte[]> veList, ArrayList<String> edgeLine,
+            BufferedWriter writer) {
+        try {
+            for (byte[] vertices : veList) {
+                writer.write("#" + 0 + "\n");
+                writer.write(vertices.length + "\n");
+                for (byte v : vertices) {
+                    writer.write(v + "\n");
+                }
+                for (String s : edgeLine) {
+                    writer.write(s);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -591,7 +742,7 @@ class Main {
         ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
         for (ObjectFragment M2 : anotherList) {
             for (byte i = ELABELNUM; i >= 0; i--) {
-                childrenOfM1.add(getChildrenOfM1Fragment(M2, i));
+                childrenOfM1.add(getChildrenOfM1Fragment(M2, i, vlabel));
             }
         }
 
@@ -622,11 +773,13 @@ class Main {
         return anotherList;
     }
 
-    private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel) {
+    private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel, byte vlabel) {
         final int depth = M2.getelabel().length + 1;
         byte[] eLabels = new byte[M2.getelabel().length + 1];
 
         boolean isConnected;
+        boolean isAllSameVlabel = M2.getIsAllSameVlabel() && M2.getVlabel() == vlabel;
+
         if (depth > 1) {
             isConnected = eLabel > 0 || M2.getIsConnected() ? true : false;
         } else {
@@ -637,8 +790,73 @@ class Main {
 
         eLabels[depth - 1] = eLabel;
 
-        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected);
+        boolean isMaxLabel = isAllSameVlabel && isConnected && M2.getIsMaxLabel()
+                && (depth - 1 == 0 || getIsCanonical(eLabels));
+
+        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, isMaxLabel,
+                isAllSameVlabel);
     }
+
+    // 正準系の接頭辞は正準系＝追加されるコードフラグメントの辺ラベルが正準系であれば、正準系である（複数の辺ラベルある場合でも）
+    private static boolean getIsCanonical(byte[] eLabels) {
+        byte[] label = new byte[ELABELNUM + 1];
+        for (byte e : eLabels) {
+            label[e]++;
+        }
+
+        int index = 0;
+        for (int l = ELABELNUM; l >= 0; l--) {
+            for (int i = 0; i < label[l]; i++) {
+                if (eLabels[index++] != l) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // boolean isMaxLabel = isConnected && M2.getIsMaxLabel() && (eLabel == 0 ||
+    // getIsCanonical(eLabels));//左の数字が小さい時点でOUTか？
+
+    // boolean isAllSameElabel = M2.getIsAllSameElabel() && isConnected
+    // & (depth - 1 == 0 || M2.getelabel()[0] == eLabel);
+    // boolean isAllSameElabel = M2.getIsAllSameElabel() && (isConnected ||
+    // (eLabels.length == 1 && eLabel == 0))
+    // & (depth - 1 == 0 || isAllSameElabel(eLabels));
+    // boolean isMaxLabel = isConnected && M2.getIsMaxLabel()
+    // && (depth - 1 == 0 || M2.getelabel()[M2.getelabel().length - 1] >= eLabel);//
+    // 左の数字が小さい時点でOUTか？
+    // boolean isMaxLabel = isConnected && M2.getIsMaxLabel() &&
+    // getIsCanonical(eLabels);
+
+    // boolean isAllSameElabel = M2.getIsAllSameElabel() && isConnected &&
+    // getIsAllSameElabel(eLabels);
+
+    // System.out.println(Arrays.toString(eLabels));
+    // byte[] label = new byte[ELABELNUM + 1];
+    // Set<Byte> eSet = new HashSet<>();
+    // eSet.add((byte) 0);
+    // int target = 0;
+    // for (byte e : eLabels) {
+    // label[e]++;
+    // eSet.add(e);
+
+    // if (e != 0) {
+    // target = e;
+    // }
+    // if (eSet.size() > 2) {
+    // return false;
+    // }
+    // }
+
+    // int index = 0;
+    // for (int l : new int[] { target, 0 }) {
+    // for (int i = 0; i < label[l]; i++) {
+    // if (eLabels[index++] != l) {
+    // return false;
+    // }
+    // }
+    // }
 
     private static boolean shouldRunInParallel(ThreadPoolExecutor executor) {
         int queuedTasks = executor.getQueue().size();
@@ -655,6 +873,30 @@ class Main {
             g.writeGraph2GfuAddeLabel(bw2);
             id_parallel++;
         }
+    }
+
+    private static void writeCodetoFileSingle(ArrayList<ObjectFragment> nowFragments) {
+        try {
+            writeCodetoFile(nowFragments, bw);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        id_single++;
+    }
+
+    private static void writeCodetoFile(ArrayList<ObjectFragment> nowFragments) throws IOException {
+        synchronized (bw2) {
+            writeCodetoFile(nowFragments, bw2);
+            id_parallel++;
+        }
+    }
+
+    private static void writeCodetoFile(List<ObjectFragment> code, BufferedWriter out) throws IOException {// AcGMコード可視化
+        for (ObjectFragment c : code) {
+            out.write(c.getVlabel() + ":" + Arrays.toString(c.getelabel()).toString() + " ");
+        }
+        out.write("\n");
+        out.flush();
     }
 
     @SuppressWarnings("unused")
@@ -757,39 +999,6 @@ class Main {
         bw3.close();
     }
 
-    private static void runJsp() {
-        try {
-            // jps コマンドを実行
-            ProcessBuilder processBuilder = new ProcessBuilder("jps");
-            Process process = processBuilder.start();
-
-            // コマンドの出力を読み取る
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-
-            String pid = "";
-            // 出力を1行ずつ読み込む
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-                // "Main" が含まれている行を探す
-                if (line.contains("Main")) {
-                    // "Main" の前の数字を抽出
-                    pid = line.split(" ")[0]; // PIDは最初の項目にあります
-                    System.out.println("Main の PID: " + pid);
-                    break; // 最初に見つけた PID を表示して終了
-                }
-            }
-
-            String command = String.format(" jstat -gcutil -t %s 1000 > jstat.tsv", pid);
-            System.out.println(command);
-            // processBuilder = new ProcessBuilder(command);
-            // process = processBuilder.start();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
     static void RunPythonFromJava() {
         try {
             ProcessBuilder pb = new ProcessBuilder("python", "draw_graph_edgeLabel.py", String.valueOf(SIGMA),
@@ -817,6 +1026,45 @@ class Main {
     }
 
 }
+
+// private static boolean getIsAllSameElabel(byte[] eLabels) {
+
+// Set<Byte> eSet = new HashSet<>();
+// for (byte e : eLabels) {
+// eSet.add(e);
+// if (eSet.size() == 2) {
+// return false;
+// }
+// }
+// return true;
+// }
+
+// private static boolean[] getIsCanonical(byte[] eLabels) {
+// // System.out.println(Arrays.toString(eLabels));
+// boolean[] result = new boolean[2];
+// result[0] = true;
+// result[1] = true;
+// byte[] label = new byte[ELABELNUM + 1];
+// byte first = eLabels[0];
+// for (byte e : eLabels) {
+// label[e]++;
+// if (first != e) {
+// result[0] = false;
+// }
+// }
+// int index = 0;
+// for (int l = ELABELNUM; l >= 0; l--) {
+// for (int i = 0; i < label[l]; i++) {
+// // System.out.println(eLabels[index]);
+// // System.out.println(l);
+// if (eLabels[index++] != l) {
+// result[1] = false;
+// return result;
+// }
+// }
+// }
+// return result;
+// }
 
 // private static CompletableFuture<Void>
 // enumarateWithAcGMParallel2(ExecutorService executorService,
@@ -948,7 +1196,7 @@ class Main {
 // }
 
 // allSameVLabelAndGenerate(pastFragments);
-// if (LABEL_COPY && SIGMA - 1 == c.getVlabel() &&
+// if ( SIGMA - 1 == c.getVlabel() &&
 // pastFragments.get(pastFragments.size() -
 // 1).getAllSameVlabel()) {
 // generateDiffVlabelGraph(g, pastFragments);
@@ -1000,4 +1248,145 @@ class Main {
 // // e.printStackTrace();
 // // }
 // }
+// }
+
+// private static void generateAllDiffVlabelGraph(Graph g,
+// ArrayList<ObjectFragment> pastFragments) {
+// int index = 1;
+// byte[] vertices = new byte[g.order()];
+// ArrayList<String> edgeLine = getEdgeLine(g.order(), g.size(), g.edges);
+// while (true) {
+// for (int i = 0; i < g.order(); i++) {
+// ObjectFragment c = pastFragments.get(i);
+// byte cvlabel = (byte) (c.getVlabel() - index);
+// if (cvlabel < 0) {
+// // System.out.println();
+// return;
+// }
+// vertices[i] = cvlabel;
+// // System.out.print(cvlabel + ":" +
+// // Arrays.toString(c.getelabel()).toString()+
+// // " ");
+// }
+// // System.out.println();
+// index++;
+// if (PARALLEL) {
+// synchronized (bw2) {
+// writeGraph2GfuAddeLabel(vertices, edgeLine, bw2);
+// // new Graph(vertices, g.edges).writeGraph2GfuAddeLabel(bw2);
+// id_parallel++;
+// }
+// } else {
+// writeGraph2GfuAddeLabel(vertices, edgeLine, bw);
+// id_single++;
+// }
+// }
+// }
+
+// private static void writeGraph2GfuAddeLabel(byte[] vertices,
+// ArrayList<String> edgeLine, BufferedWriter writer) {
+// try {
+// writer.write("#" + 0 + "\n");
+// writer.write(vertices.length + "\n");
+// for (byte v : vertices) {
+// writer.write(v + "\n");
+// }
+// for (String s : edgeLine) {
+// writer.write(s);
+// }
+// } catch (Exception e) {
+// e.printStackTrace();
+// }
+// }
+
+// A[1] A[11]:A[111]:A[1111]→A[00001]～[011111]は非正準 (全て同じ辺ラベルのみ)
+// boolean isNotCanonical = nowFragments.size() > 1
+// && c.getIsMaxLabel() == false
+// && c.getIsAllSameElabel() == true;
+// boolean isNotCanonical = c.getIsAllSameVlabel() == true &&
+// nowFragments.size() > 1
+// && c.getIsMaxLabel() == false && c.getIsAllSameElabel() == true
+// && nowFragments.get(nowFragments.size() - 2).getIsAllSameElabel() == true;
+// if (isNotCanonical && objectType.isCanonical(g, nowFragments)) {
+// print(nowFragments, true);
+// nowFragments.remove(nowFragments.size() - 1);
+// continue;
+// }
+// if (isNotCanonical && objectType.isCanonical(g, nowFragments)) {
+// print(nowFragments, true);
+// }
+
+// if (c.getIsAllSameVlabel() && c.getIsMaxLabel()) {
+// print(nowFragments, true);
+// }
+
+// if (nowFragments.size() > 1 && nowFragments.get(nowFragments.size() -
+// 2).getIsMaxLabel() == true
+// && c.getIsMaxLabel() == false
+// && c.getVlabel() == nowFragments.get(nowFragments.size() - 2).getVlabel()) {
+// print(nowFragments, true);
+// if (objectType.isCanonical(g, nowFragments)) {
+// print(nowFragments, true);
+// }
+// nowFragments.remove(nowFragments.size() - 1);
+// // codeList.set(index, null);
+// continue;
+// }
+
+// if ((c.getIsMaxLabel()) &&
+// !objectType.isCanonical(g, nowFragments)) {
+// System.out.println("canonical code: ");
+// print(objectType.computeCanonicalCode(g), true);
+// System.out.println("this code: ");
+// print(nowFragments, true);
+// System.out.println("miss");
+// }
+
+// System.out.println("target");
+// print(nowFragments, true);
+
+// private static boolean isAllSameElabel(byte[] eLabels) {
+// Set<Byte> eSet = new HashSet<>();
+// // System.out.println(Arrays.toString(eLabels));
+// eSet.add((byte) 0);
+// for (byte e : eLabels) {
+// eSet.add(e);
+// if (eSet.size() > 2) {
+// return false;
+// }
+// }
+// return true;
+// }
+// private static void runJsp() {
+// try {
+// // jps コマンドを実行
+// ProcessBuilder processBuilder = new ProcessBuilder("jps");
+// Process process = processBuilder.start();
+
+// // コマンドの出力を読み取る
+// BufferedReader reader = new BufferedReader(new
+// InputStreamReader(process.getInputStream()));
+// String line;
+
+// String pid = "";
+// // 出力を1行ずつ読み込む
+// while ((line = reader.readLine()) != null) {
+// System.out.println(line);
+// // "Main" が含まれている行を探す
+// if (line.contains("Main")) {
+// // "Main" の前の数字を抽出
+// pid = line.split(" ")[0]; // PIDは最初の項目にあります
+// System.out.println("Main の PID: " + pid);
+// break; // 最初に見つけた PID を表示して終了
+// }
+// }
+
+// String command = String.format(" jstat -gcutil -t %s 1000 > jstat.tsv", pid);
+// System.out.println(command);
+// // processBuilder = new ProcessBuilder(command);
+// // process = processBuilder.start();
+// } catch (IOException e) {
+// e.printStackTrace();
+// }
+
 // }

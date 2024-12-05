@@ -10,29 +10,49 @@ class AcgmCodeFragment
     final byte vLabel;
     final byte[] eLabels;
     final boolean isConnected;
+    final boolean isMaxLabel;
+    final boolean isAllSameVlabel;
 
     AcgmCodeFragment(byte vLabel, int length) {
         this.vLabel = vLabel;
         eLabels = new byte[length];
         isConnected = true;
+        isMaxLabel = true;
+        isAllSameVlabel = true;
     }
 
     AcgmCodeFragment(byte vLabel, byte[] eLabels) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         isConnected = false;
+        isMaxLabel = true;
+        isAllSameVlabel = true;
     }
 
-    AcgmCodeFragment(byte vLabel, byte[] eLabels, boolean isConnected) {
+    AcgmCodeFragment(byte vLabel, byte[] eLabels, boolean isConnected, boolean isMaxLabel,
+            boolean isAllSameVlabel) {
         this.vLabel = vLabel;
         this.eLabels = eLabels.clone();
         this.isConnected = isConnected;
-
+        this.isMaxLabel = isMaxLabel;
+        this.isAllSameVlabel = isAllSameVlabel;
     }
 
     int isMoreCanonicalThan(AcgmCodeFragment other) {
         final int res = vLabel - other.vLabel;
         return res != 0 ? res : Arrays.compare(eLabels, other.eLabels);
+    }
+
+    public int isMoreCanonicalThan(ObjectFragment other) {
+        final int res = vLabel - other.getVlabel();
+        return res != 0 ? res : Arrays.compare(eLabels, other.getelabel());
+    }
+
+    @Override
+    public int isMoreCanonicalThan(CodeFragment other) {
+        AcgmCodeFragment other0 = (AcgmCodeFragment) other;
+        final int res = vLabel - other0.vLabel;
+        return res != 0 ? res : Arrays.compare(eLabels, other0.eLabels);
     }
 
     @Override
@@ -86,5 +106,15 @@ class AcgmCodeFragment
     @Override
     public boolean getIsConnected() {
         return this.isConnected;
+    }
+
+    @Override
+    public boolean getIsMaxLabel() {
+        return this.isMaxLabel;
+    }
+
+    @Override
+    public boolean getIsAllSameVlabel() {
+        return this.isAllSameVlabel;
     }
 }

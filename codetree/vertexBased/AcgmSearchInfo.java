@@ -55,4 +55,15 @@ final class AcgmSearchInfo
         }
         return true;
     }
+
+    @Override
+    public BitSet getOpen() {
+        return open;
+    }
+
+    @Override
+    public int[] getVertexIDs() {
+        return vertexIDs;
+    }
+
 }

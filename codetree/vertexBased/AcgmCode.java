@@ -9,8 +9,9 @@ public class AcgmCode
         implements GraphCode, ObjectType {
 
     @Override
-    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected) {
-        return (new AcgmCodeFragment(vLabel, eLabel, isConnected));
+    public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected, boolean isMaxLabel,
+            boolean isAllSameVlabel) {
+        return (new AcgmCodeFragment(vLabel, eLabel, isConnected, isMaxLabel, isAllSameVlabel));
     }
 
     @Override
@@ -26,6 +27,60 @@ public class AcgmCode
         return codeList;
     }
 
+    // for debug
+    @Override
+    public ArrayList<ObjectFragment> computeCanonicalCode(Graph g) {
+        final int n = g.order();
+        ArrayList<ObjectFragment> code = new ArrayList<>(n);
+
+        ArrayList<AcgmSearchInfo> infoList1 = new ArrayList<>();
+        ArrayList<AcgmSearchInfo> infoList2 = new ArrayList<>();
+
+        final byte max = g.getMaxVertexLabel();
+        code.add(new AcgmCodeFragment(max, 0));
+
+        List<Integer> maxVertexList = g.getVertexList(max);
+        for (int v0 : maxVertexList) {
+            infoList1.add(new AcgmSearchInfo(g, v0));
+        }
+
+        for (int depth = 1; depth < n; ++depth) {
+            AcgmCodeFragment maxFrag = new AcgmCodeFragment((byte) -1, depth);
+
+            byte[] eLabels = new byte[depth];
+            for (AcgmSearchInfo info : infoList1) {
+                for (int v = 0; v < n; ++v) {
+                    if (!info.open.get(v)) {
+                        continue;
+                    }
+
+                    for (int i = 0; i < depth; ++i) {
+                        final int u = info.vertexIDs[i];
+                        eLabels[i] = g.edges[u][v];
+                    }
+
+                    AcgmCodeFragment frag = new AcgmCodeFragment(g.vertices[v], eLabels);
+                    final int cmpres = maxFrag.isMoreCanonicalThan(frag);
+                    if (cmpres < 0) {
+                        maxFrag = frag;
+                        infoList2.clear();
+                        infoList2.add(new AcgmSearchInfo(info, g, v));
+                    } else if (cmpres == 0) {
+                        infoList2.add(new AcgmSearchInfo(info, g, v));
+                    }
+                }
+            }
+
+            code.add(maxFrag);
+
+            infoList1 = infoList2;
+            infoList2 = new ArrayList<>();
+        }
+
+        return code;
+    }
+
+    // BFS
     @Override
     public List<CodeFragment> computeCanonicalCode(Graph g, int c) {
         final int n = g.order();
@@ -78,6 +133,25 @@ public class AcgmCode
         return code;
     }
 
+    public static long isCanonicalTime = 0;
+    public static int canonical_times = 0;
+
+    @Override
+    public boolean isCanonical(Graph g, List<ObjectFragment> c) {
+        long start = System.nanoTime();
+        // boolean isCanonical = computeCanonicalCode(g, c);
+        // System.out.println("BFS" + isCanonical);
+        boolean isCanonical = computeCanonicalCode_DFS(g, c);
+        // System.out.println("\nDFS" + isCanonical2);
+        // if (isCanonical != isCanonical2) {
+        // System.out.println("different");
+        // }
+        canonical_times++;
+        isCanonicalTime += System.nanoTime() - start;
+        return isCanonical;
+    }
+
+    // BFS
     @Override
     public boolean computeCanonicalCode(Graph g, List<ObjectFragment> target) {
         final int n = g.order();
@@ -128,6 +202,84 @@ public class AcgmCode
         }
 
         return true;
+    }
+
+    public boolean computeCanonicalCode_DFS(Graph g, List<ObjectFragment> target) {
+
+        // print(target);
+
+        final int n = g.order();
+
+        final byte max = g.getMaxVertexLabel();
+        if (max != target.get(0).getVlabel()) {
+            return false;
+        }
+
+        boolean[] open = new boolean[n];
+        Arrays.fill(open, true);
+        boolean[] close = new boolean[n];
+        ArrayList<Integer> vertexIDs = new ArrayList<>(n);
+
+        int ans = perm(g, target, open, close, vertexIDs, 0, n);
+
+        if (ans < 0) {
+            return false;
+        }
+        return true;
+    }
+
+    private int perm(Graph g, List<ObjectFragment> target, boolean[] open, boolean[] close,
+            ArrayList<Integer> vertexIDs, int depth, int n) {
+
+        byte[] eLabels = new byte[depth];
+        for (int v = 0; v < n; v++) {
+            if (!open[v])
+                continue;
+
+            boolean conected = false;
+
+            for (int i = 0; i < depth; ++i) {
+                final int u = vertexIDs.get(i);
+                byte e = g.edges[u][v];
+                eLabels[i] = e;
+                if (e != 0) {
+                    conected = true;
+                }
+            }
+            if (conected || depth == 0) {
+
+                ObjectFragment frag = new AcgmCodeFragment(g.vertices[v], eLabels);
+
+                int ans = target.get(depth).isMoreCanonicalThan(frag);
+
+                if (ans < 0) {
+                    return ans;
+                } else if ((ans == 0 && depth + 1 != n)) {
+                    vertexIDs.add(v);
+                    open[v] = false;
+                    close[v] = true;
+                    int[] adj = g.adjList[v];
+                    for (int u : adj) {
+                        if (!close[u]) {
+                            open[u] = true;
+                        }
+                    }
+                    ans = perm(g, target, open, close, vertexIDs, depth + 1, n);
+                    open[v] = true;
+                    close[v] = false;
+                    vertexIDs.remove(vertexIDs.size() - 1);
+                    for (int u : adj) {
+                        if (close[u]) {
+                            open[u] = false;
+                        }
+                    }
+                    if (ans < 0) {
+                        return ans;
+                    }
+                }
+            }
+        }
+        return 0;
     }
 
     @Override
@@ -212,16 +364,6 @@ public class AcgmCode
         }
 
         return frags;
-    }
-
-    public static long isCanonicalTime = 0;
-
-    @Override
-    public boolean isCanonical(Graph g, List<ObjectFragment> c) {
-        long start = System.nanoTime();
-        boolean isCanonical = computeCanonicalCode(g, c);
-        isCanonicalTime += System.nanoTime() - start;
-        return isCanonical;
     }
 
     @Override
