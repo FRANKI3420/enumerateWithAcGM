@@ -10,8 +10,8 @@ public class AcgmCode
 
     @Override
     public ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected, boolean isMaxLabel,
-            boolean isAllSameVlabel) {
-        return (new AcgmCodeFragment(vLabel, eLabel, isConnected, isMaxLabel, isAllSameVlabel));
+            boolean isAllSameVlabel, byte isAllSameElabel) {
+        return (new AcgmCodeFragment(vLabel, eLabel, isConnected, isMaxLabel, isAllSameVlabel, isAllSameElabel));
     }
 
     @Override

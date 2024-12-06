@@ -14,4 +14,6 @@ public interface ObjectFragment {
     public abstract boolean getIsMaxLabel();
 
     public abstract boolean getIsAllSameVlabel();
+
+    public abstract byte getIsAllSameElabel();
 }

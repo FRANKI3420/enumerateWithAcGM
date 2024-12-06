@@ -4,7 +4,7 @@ import java.util.*;
 
 public interface ObjectType {
     abstract ObjectFragment generateCodeFragment(byte vLabel, byte[] eLabel, boolean isConnected, boolean isMaxLabel,
-            boolean isAllSameVlabel);
+            boolean isAllSameVlabel, byte isAllSameElabel);
 
     abstract boolean isCanonical(Graph g, List<ObjectFragment> c);
 
