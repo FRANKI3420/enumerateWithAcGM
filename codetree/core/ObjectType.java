@@ -8,6 +8,8 @@ public interface ObjectType {
 
     abstract boolean isCanonical(Graph g, List<ObjectFragment> c);
 
+    abstract boolean isCanonical(List<ObjectFragment> c);
+
     abstract ArrayList<ObjectFragment> computeCanonicalCode(Graph g);
 
     abstract boolean computeCanonicalCode(Graph g, List<ObjectFragment> c);

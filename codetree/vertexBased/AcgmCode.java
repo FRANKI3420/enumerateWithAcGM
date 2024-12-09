@@ -141,7 +141,8 @@ public class AcgmCode
         long start = System.nanoTime();
         // boolean isCanonical = computeCanonicalCode(g, c);
         // System.out.println("BFS" + isCanonical);
-        boolean isCanonical = computeCanonicalCode_DFS(g, c);
+        // boolean isCanonical = computeCanonicalCode_DFS(g, c);
+        boolean isCanonical = computeCanonicalCode_DFS(c);
         // System.out.println("\nDFS" + isCanonical2);
         // if (isCanonical != isCanonical2) {
         // System.out.println("different");
@@ -206,14 +207,12 @@ public class AcgmCode
 
     public boolean computeCanonicalCode_DFS(Graph g, List<ObjectFragment> target) {
 
-        // print(target);
-
         final int n = g.order();
 
-        final byte max = g.getMaxVertexLabel();
-        if (max != target.get(0).getVlabel()) {
-            return false;
-        }
+        // final byte max = g.getMaxVertexLabel();
+        // if (max != target.get(0).getVlabel()) {
+        // return false;
+        // }
 
         boolean[] open = new boolean[n];
         Arrays.fill(open, true);
@@ -280,6 +279,145 @@ public class AcgmCode
             }
         }
         return 0;
+    }
+
+    @Override
+    public boolean isCanonical(List<ObjectFragment> target) {
+        long start = System.nanoTime();
+
+        boolean isCanonical = computeCanonicalCode_DFS(target);
+
+        canonical_times++;
+        isCanonicalTime += System.nanoTime() - start;
+        return isCanonical;
+    }
+
+    public boolean computeCanonicalCode_DFS(List<ObjectFragment> target) {
+
+        final int n = target.size();
+
+        boolean[] open = new boolean[n];
+        Arrays.fill(open, true);
+        boolean[] close = new boolean[n];
+        ArrayList<Integer> vertexIDs = new ArrayList<>(n);
+
+        int[][] adj = getAdjList(target, n);
+
+        int ans = perm(target, adj, open, close, vertexIDs, 0, n);
+
+        if (ans < 0) {
+            // System.out.println("非");
+            // print(target);
+            return false;
+        }
+        // System.out.println("正");
+        // print(target);
+        return true;
+    }
+
+    private int perm(List<ObjectFragment> target, int[][] adj, boolean[] open, boolean[] close,
+            ArrayList<Integer> vertexIDs, int depth, int n) {
+
+        byte[] eLabels = new byte[depth];
+        for (int v = 0; v < n; v++) {
+            if (!open[v])
+                continue;
+
+            boolean conected = false;
+
+            for (int i = 0; i < depth; ++i) {
+                final int u = vertexIDs.get(i);
+                byte e;
+                if (u < v) {
+                    e = target.get(v).getelabel()[u];
+                } else {
+                    e = target.get(u).getelabel()[v];
+                }
+                eLabels[i] = e;
+                if (e != 0) {
+                    conected = true;
+                }
+            }
+            if (conected || depth == 0) {
+
+                ObjectFragment frag = new AcgmCodeFragment(target.get(v).getVlabel(), eLabels);
+
+                int ans = target.get(depth).isMoreCanonicalThan(frag);
+
+                if (ans < 0) {
+                    return ans;
+                } else if ((ans == 0 && depth + 1 != n)) {
+                    vertexIDs.add(v);
+                    open[v] = false;
+                    close[v] = true;
+                    for (int u : adj[v]) {
+                        if (!close[u]) {
+                            open[u] = true;
+                        }
+                    }
+                    ans = perm(target, adj, open, close, vertexIDs, depth + 1, n);
+                    open[v] = true;
+                    close[v] = false;
+                    vertexIDs.remove(vertexIDs.size() - 1);
+                    for (int u : adj[v]) {
+                        if (close[u]) {
+                            open[u] = false;
+                        }
+                    }
+                    if (ans < 0) {
+                        return ans;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+
+    private int[][] getAdjList(List<ObjectFragment> target, int n) {
+        int[][] adj = new int[n][];
+        int[][] target_adj = new int[n][n];
+        int[] count = new int[n];
+
+        for (int i = 0; i < n; i++) {
+            ObjectFragment c = target.get(i);
+            for (int j = 0; j < i; j++) {
+                if (c.getelabel()[j] > 0) {
+                    target_adj[i][j] = 1;
+                    target_adj[j][i] = 1;
+                    count[i]++;
+                    count[j]++;
+                }
+            }
+        }
+
+        for (int i = 0; i < n; i++) {
+            adj[i] = new int[count[i]];
+
+            int index = 0;
+            for (int j = 0; j < n; j++) {
+                if (target_adj[i][j] == 1) {
+                    adj[i][index++] = j;
+                }
+            }
+        }
+        // for (int i = 0; i < adj.length; i++) {
+        // System.out.print("adj[" + i + "]: ");
+        // for (int j = 0; j < adj[i].length; j++) {
+        // System.out.print(adj[i][j] + " ");
+        // }
+        // System.out.println();
+        // }
+
+        return adj;
+    }
+
+    @SuppressWarnings("unused")
+    private static void print(List<ObjectFragment> code) {// for debug
+        for (ObjectFragment c : code) {
+            System.out.print(c.getVlabel() + ":" + Arrays.toString(c.getelabel()).toString() + " ");
+        }
+
+        System.out.println();
     }
 
     @Override

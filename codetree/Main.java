@@ -45,15 +45,14 @@ class Main {
     private static int PARAM = 5000;// 8:300 9:5000
     private static byte SIGMA = 5;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 7;
+    private static int FINISH = 5;
     private static final boolean PARALLEL = false;
     private static final boolean SINGLE_And_PARALLEL = false;
     private static final boolean USING_STACK = false;
     private static final boolean LABEL_COPY = true;
 
     public static void main(String[] args) {
-        System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM);
-        System.out.println("LABELCOPY " + LABEL_COPY);
+        System.out.println("|V|<=" + FINISH + " |Σ|=" + SIGMA + " ELABELNUM=" + ELABELNUM + " LABELCOPY " + LABEL_COPY);
         try {
             if (!PARALLEL) {
                 startEnumarate(USING_STACK);
@@ -65,8 +64,7 @@ class Main {
             e.printStackTrace();
         }
 
-        double maxMemoryUsedInMB = maxMemoryUsed
-                / (1024.0 * 1024.0);
+        double maxMemoryUsedInMB = maxMemoryUsed / (1024.0 * 1024.0);
         System.out.println(String.format("最大メモリ使用量: %.1f MB", maxMemoryUsedInMB));
         double isCanonicalTime = (double) AcgmCode.isCanonicalTime / (1000 * 1000 * 1000);
         System.out.println(String.format("正準判定時間: %.1f s", isCanonicalTime));
@@ -102,7 +100,6 @@ class Main {
     }
 
     private static void startEnumarateParallel(boolean SINGLE_And_PARALLEL, boolean USING_STACK) throws IOException {
-        // 固定サイズのスレッドプール作成
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         long start = System.nanoTime();
         try {
@@ -150,11 +147,9 @@ class Main {
             }
             // MergeTextFiles();
             start = System.nanoTime() - start;
-            System.out.println("実行時間：" + (start) / 1000 / 1000 +
-                    "ms");
-            System.out.println(
-                    "実行時間：" + String.format("%.1f", (double) (start) / 1000 /
-                            1000 / 1000) + "s");
+            System.out.println("実行時間：" + (start) / 1000 / 1000 + "ms");
+            System.out.println("実行時間：" + String.format("%.1f", (double) (start) / 1000 /
+                    1000 / 1000) + "s");
             System.out.println("ans num: " + (id_parallel + id_single));
             if (SINGLE_And_PARALLEL) {
                 System.out.println("ans num(single thread): " + (id_single));
@@ -174,12 +169,7 @@ class Main {
             final ObjectFragment c = codeList.get(index);
             if (c.getIsConnected()) {
                 nowFragments.add(c);
-                // print(nowFragments, true);
-
-                // Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
-
                 if (isCanonical(c, nowFragments)) {
-
                     if (LABEL_COPY) {
                         if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
                             // generateAllDiffVlabelGraph(g, nowFragments);
@@ -190,7 +180,6 @@ class Main {
                     }
 
                     writeCodetoFileSingle(nowFragments);
-                    // writeGraphtoFileSingle(g);
 
                     if (nowFragments.size() == FINISH) {
                         nowFragments.remove(nowFragments.size() - 1);
@@ -200,77 +189,49 @@ class Main {
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
                     // codeList.set(index, null);
                     enumarateWithAcGM(childrenOfM1, nowFragments);
-                } else {
-                    // print(nowFragments);
-                    // System.out.println("事後判定");
                 }
 
                 nowFragments.remove(nowFragments.size() - 1);
             }
         }
-
     }
 
     private static boolean isCanonical(ObjectFragment c, ArrayList<ObjectFragment> nowFragments) {
-        if (c.getIsAllSameVlabel() && c.getIsMaxLabel()) {
-            return true;
-        }
+        // // 1
+        // if (c.getIsAllSameVlabel() && c.getIsMaxLabel()) {
+        // return true;
+        // }
 
-        if (isAllCanonical(nowFragments)) {
-            // if (!objectType.isCanonical(objectType.generateGraphAddElabel(nowFragments,
-            // 0), nowFragments)) {
-            // print(nowFragments);
-            // }
-            // print(nowFragments);
+        // 2
+        if (c.getIsMaxLabel() && isAllCanonical(nowFragments)) {
             return true;
         }
 
         int depth = nowFragments.size();
+        boolean isAllSameVlabelExceptLast = nowFragments.get(depth - 2).getIsAllSameVlabel() && !c.getIsAllSameVlabel();
 
-        // 頂点ラベルが始めから連続して同じであるフラグメントまで、その辺ラベルは左寄→追加されたフラグメントが左寄であれば正準
-        if (nowFragments.get(depth - 2).getIsAllSameVlabel() &&
-                !c.getIsAllSameVlabel()) {
+        // 3
+        if (isAllSameVlabelExceptLast) {
             if (c.getIsMaxLabel()) {
                 return true;
             }
         }
 
-        // 今までの全辺フラグが同じラベル＝ラストフラグメントが最大であれば正準、そうでなければ非
-        if (isAllSameElabelExceptLast(nowFragments)) {
-            // print(nowFragments);
-            if (c.getIsAllSameVlabel()) {
-                if (c.getIsMaxLabel()) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else if (nowFragments.get(depth - 2).getIsAllSameVlabel() &&
-                    !c.getIsAllSameVlabel()) {
-                if (c.getIsMaxLabel()) {
-                    return true;
-                } else {
-                    return false;
-                }
+        // 4
+        if (c.getIsAllSameElabel() > 0 && isAllSameElabelExceptLast(nowFragments)) {
+            if (c.getIsAllSameVlabel() && !c.getIsMaxLabel()) {
+                return false;
+            } else if (isAllSameVlabelExceptLast && !c.getIsMaxLabel()) {
+                return false;
             }
         }
-
         // print(nowFragments);
-        return objectType.isCanonical(objectType.generateGraphAddElabel(nowFragments, 0), nowFragments);
+
+        return objectType.isCanonical(nowFragments);
 
     }
 
     private static boolean isAllCanonical(ArrayList<ObjectFragment> nowFragments) {
-        // if (nowFragments.size() <= 3) {
-        // return false;
-        // }
-        // for (ObjectFragment c : nowFragments) {
-        // if (c.getelabel().length <= 2)
-        // continue;
-        // if (c.getIsMaxLabel()) {
-        // return false;
-        // }
-        // }
-        // return true;
         for (ObjectFragment c : nowFragments) {
             if (!c.getIsMaxLabel()) {
                 return false;
@@ -287,6 +248,93 @@ class Main {
         for (int index = 2; index < nowFragments.size() - 1; index++) {
             if (eLabel != nowFragments.get(index).getIsAllSameElabel())
                 return false;
+        }
+        return true;
+    }
+
+    private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> codeList, int index,
+            byte vlabel) {
+
+        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
+
+        ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
+        for (ObjectFragment M2 : anotherList) {
+            for (byte i = ELABELNUM; i >= 0; i--) {
+                childrenOfM1.add(getChildrenOfM1Fragment(M2, i, vlabel));
+            }
+        }
+
+        return childrenOfM1;
+    }
+
+    private static ArrayList<ObjectFragment> getAnotherList(
+            final List<ObjectFragment> codeList, final int index, final byte vLabel) {
+
+        final int len = codeList.size();
+        ArrayList<ObjectFragment> anotherList = new ArrayList<>();
+
+        if (SIGMA > 1 && maxVlabel != vLabel) {
+            // 兄の中で非連結なフラグメントのみ追加
+            for (int i = 0; i < index; i++) {
+                ObjectFragment c = codeList.get(i);
+                if (c.getelabel().length > 0 && c.getIsConnected())
+                    continue;
+                anotherList.add(c);
+            }
+        }
+
+        // 自身を含めて弟のフラグメントを追加
+        anotherList.addAll(codeList.subList(index, len));
+
+        return anotherList;
+    }
+
+    private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel, byte vlabel) {
+        final int depth = M2.getelabel().length + 1;
+        byte[] eLabels = new byte[M2.getelabel().length + 1];
+
+        boolean isConnected;
+        boolean isAllSameVlabel = M2.getIsAllSameVlabel() && M2.getVlabel() == vlabel;
+
+        if (depth > 1) {
+            isConnected = eLabel > 0 || M2.getIsConnected() ? true : false;
+        } else {
+            isConnected = eLabel > 0 ? true : false;
+        }
+
+        System.arraycopy(M2.getelabel(), 0, eLabels, 0, depth - 1);
+
+        eLabels[depth - 1] = eLabel;
+
+        boolean isMaxLabel = isConnected && M2.getIsMaxLabel()
+                && (depth - 1 == 0 || getIsCanonical(eLabels));
+
+        byte isAllSameElabel = 0;
+        if (depth - 1 == 0) {
+            isAllSameElabel = eLabel;
+        } else if (M2.getIsAllSameElabel() != 0 && isConnected
+                && (depth - 1 == 0 || M2.getelabel()[0] == eLabel)) {
+            isAllSameElabel = eLabel;
+        }
+
+        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, isMaxLabel,
+                isAllSameVlabel, isAllSameElabel);
+    }
+
+    // 正準系の接頭辞は正準系＝追加されるコードフラグメントの辺ラベルが正準系であれば、正準系である（複数の辺ラベルある場合でも）
+    private static boolean getIsCanonical(byte[] eLabels) {
+        byte[] label = new byte[ELABELNUM + 1];
+        for (byte e : eLabels) {
+            label[e]++;
+        }
+
+        int index = 0;
+        for (int l = ELABELNUM; l >= 0; l--) {
+            for (int i = 0; i < label[l]; i++) {
+                if (eLabels[index++] != l) {
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -724,7 +772,6 @@ class Main {
     private static void writeVlabelChangeCodetoFile_single(List<ObjectFragment> code, BufferedWriter out)
             throws IOException {
         int index = 1;
-        // print(code, true);
         while (true) {
             String line = "";
             for (ObjectFragment c : code) {
@@ -734,7 +781,6 @@ class Main {
                 }
                 line += (c.getVlabel() - index) + ":" + Arrays.toString(c.getelabel()).toString() + " ";
             }
-            // System.out.println(line);
             id_single++;
             out.write(line + "\n");
             index++;
@@ -777,101 +823,6 @@ class Main {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private static ArrayList<ObjectFragment> getChildrenOfM1(ArrayList<ObjectFragment> codeList, int index,
-            byte vlabel) {
-
-        ArrayList<ObjectFragment> childrenOfM1 = new ArrayList<>();
-
-        ArrayList<ObjectFragment> anotherList = getAnotherList(codeList, index, vlabel);
-        for (ObjectFragment M2 : anotherList) {
-            for (byte i = ELABELNUM; i >= 0; i--) {
-                childrenOfM1.add(getChildrenOfM1Fragment(M2, i, vlabel));
-            }
-        }
-
-        return childrenOfM1;
-    }
-
-    private static ArrayList<ObjectFragment> getAnotherList(
-            final List<ObjectFragment> codeList, final int index, final byte vLabel) {
-
-        final int len = codeList.size();
-        ArrayList<ObjectFragment> anotherList = new ArrayList<>();
-
-        if (SIGMA > 1 && maxVlabel != vLabel) {
-            // 兄の中で非連結なフラグメントのみ追加
-            for (int i = 0; i < index; i++) {
-                ObjectFragment c = codeList.get(i);
-                // if (c == null || c.getIsConnected())
-                if (c == null || (c.getelabel().length > 0 && c.getIsConnected()))
-                    continue;
-                anotherList.add(c);
-            }
-        }
-
-        // 自身を含めて弟のフラグメントを追加
-        for (int i = index; i < len; i++) {
-            anotherList.add(codeList.get(i));
-        }
-        return anotherList;
-    }
-
-    private static ObjectFragment getChildrenOfM1Fragment(final ObjectFragment M2, final byte eLabel, byte vlabel) {
-        final int depth = M2.getelabel().length + 1;
-        byte[] eLabels = new byte[M2.getelabel().length + 1];
-
-        boolean isConnected;
-        boolean isAllSameVlabel = M2.getIsAllSameVlabel() && M2.getVlabel() == vlabel;
-
-        if (depth > 1) {
-            isConnected = eLabel > 0 || M2.getIsConnected() ? true : false;
-        } else {
-            isConnected = eLabel > 0 ? true : false;
-        }
-
-        System.arraycopy(M2.getelabel(), 0, eLabels, 0, depth - 1);
-
-        eLabels[depth - 1] = eLabel;
-
-        boolean isMaxLabel = isConnected && M2.getIsMaxLabel()
-                && (depth - 1 == 0 || getIsCanonical(eLabels));
-        // boolean isMaxLabel = isAllSameVlabel && isConnected && M2.getIsMaxLabel()
-        // && (depth - 1 == 0 || getIsCanonical(eLabels));
-
-        // byte isAllSameElabel = M2.getIsAllSameElabel() != 0 && isConnected
-        // && (depth - 1 == 0 || M2.getelabel()[0] == eLabel) ? eLabel : 0;
-
-        byte isAllSameElabel = 0;
-        if (depth - 1 == 0) {
-            isAllSameElabel = eLabel;
-        } else if (M2.getIsAllSameElabel() != 0 && isConnected
-                && (depth - 1 == 0 || M2.getelabel()[0] == eLabel)) {
-            isAllSameElabel = eLabel;
-        }
-        // System.out.println(isAllSameElabel + " " + Arrays.toString(eLabels));
-
-        return objectType.generateCodeFragment(M2.getVlabel(), eLabels, isConnected, isMaxLabel,
-                isAllSameVlabel, isAllSameElabel);
-    }
-
-    // 正準系の接頭辞は正準系＝追加されるコードフラグメントの辺ラベルが正準系であれば、正準系である（複数の辺ラベルある場合でも）
-    private static boolean getIsCanonical(byte[] eLabels) {
-        byte[] label = new byte[ELABELNUM + 1];
-        for (byte e : eLabels) {
-            label[e]++;
-        }
-
-        int index = 0;
-        for (int l = ELABELNUM; l >= 0; l--) {
-            for (int i = 0; i < label[l]; i++) {
-                if (eLabels[index++] != l) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     // boolean isMaxLabel = isConnected && M2.getIsMaxLabel() && (eLabel == 0 ||
