@@ -43,9 +43,9 @@ class Main {
     private static final boolean RUN_PYTHON = false;
     // シングルスレッドとマルチスレッドの割合を決める(調整難)
     private static int PARAM = 5000;// 8:300 9:5000
-    private static byte SIGMA = 5;
+    private static byte SIGMA = 1;
     private static byte ELABELNUM = 1;
-    private static int FINISH = 5;
+    private static int FINISH = 10;
     private static final boolean PARALLEL = false;
     private static final boolean SINGLE_And_PARALLEL = false;
     private static final boolean USING_STACK = false;
@@ -94,6 +94,10 @@ class Main {
                     "実行時間: " + String.format("%.2f", (double) (System.nanoTime() - start) / 1000 / 1000 / 1000) + "s");
 
             System.out.println("ans num: " + id_single);
+            System.out.println(FINISH + "," + String.format("%.2f",
+                    (double) (System.nanoTime() - start) / 1000 / 1000 / 1000) + "," + id_single + ","
+                    + String.format("%.2f", maxMemoryUsed
+                            / (1024.0 * 1024.0)));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -197,28 +201,29 @@ class Main {
     }
 
     private static boolean isCanonical(ObjectFragment c, ArrayList<ObjectFragment> nowFragments) {
-        // // 1
-        // if (c.getIsAllSameVlabel() && c.getIsMaxLabel()) {
-        // return true;
-        // }
-
-        // 2
-        if (c.getIsMaxLabel() && isAllCanonical(nowFragments)) {
+        // 1
+        if (c.getIsAllSameVlabel() && c.getIsMaxLabel()) {
             return true;
         }
 
         int depth = nowFragments.size();
         boolean isAllSameVlabelExceptLast = nowFragments.get(depth - 2).getIsAllSameVlabel() && !c.getIsAllSameVlabel();
 
-        // 3
+        // 2
         if (isAllSameVlabelExceptLast) {
             if (c.getIsMaxLabel()) {
                 return true;
             }
         }
 
+        // 3
+        if (c.getIsMaxLabel() && isAllCanonical(nowFragments)) {
+            return true;
+        }
+
+        // print(nowFragments);
         // 4
-        if (c.getIsAllSameElabel() > 0 && isAllSameElabelExceptLast(nowFragments)) {
+        if (isAllSameElabelExceptLast(nowFragments)) {
             if (c.getIsAllSameVlabel() && !c.getIsMaxLabel()) {
                 return false;
             } else if (isAllSameVlabelExceptLast && !c.getIsMaxLabel()) {
@@ -356,7 +361,7 @@ class Main {
                 if (c.getIsConnected()) {
                     nowFragments.add(c);
 
-                    Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
+                    // Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
 
                     if (isCanonical(c, nowFragments)) {
                         if (LABEL_COPY) {
@@ -395,7 +400,6 @@ class Main {
                 ArrayList<ObjectFragment> nowFragments = new ArrayList<ObjectFragment>(pastFragments);
                 nowFragments.add(c);
 
-                // Graph g = objectType.generateGraphAddElabel(nowFragments, 0);
                 if (isCanonical(c, nowFragments)) {
                     if (LABEL_COPY) {
                         if (SIGMA - 1 == nowFragments.get(0).getVlabel()) {
@@ -403,7 +407,6 @@ class Main {
                             try {
                                 generateAllDiffVlabelGraph2(nowFragments);
                             } catch (IOException e) {
-                                // TODO Auto-generated catch block
                                 e.printStackTrace();
                             }
                         } else {
@@ -413,8 +416,6 @@ class Main {
 
                     writeCodetoFile(nowFragments);
 
-                    // writeGraphtoFile(g);
-
                     if (nowFragments.size() == FINISH) {
                         codeList.set(index, null);
                         continue;
@@ -422,9 +423,16 @@ class Main {
                     ArrayList<ObjectFragment> childrenOfM1 = getChildrenOfM1(codeList, index, c.getVlabel());
 
                     tasks.add(CompletableFuture.supplyAsync(() -> {
-                        return enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
+                        return enumarateWithAcGMParallel(executorService, childrenOfM1,
+                                nowFragments);
                     }, executorService).thenComposeAsync(future -> future));
-
+                    // 非同期タスクを登録（完了を待たない設計）
+                    // tasks.add(CompletableFuture.runAsync(() -> {
+                    // enumarateWithAcGMParallel(executorService, childrenOfM1, nowFragments);
+                    // }, executorService));
+                    // CompletableFuture<Void> allTasks = CompletableFuture.allOf(tasks.toArray(new
+                    // CompletableFuture[0]));
+                    // allTasks.join(); // すべてのタスクが終了するまで待機
                 }
             }
         }
